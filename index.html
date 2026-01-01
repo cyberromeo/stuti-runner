@@ -186,7 +186,7 @@
                 <circle cx="57" cy="40" r="5" fill="none" stroke="silver" stroke-width="1.5"/>
                 <line x1="48" y1="40" x2="52" y2="40" stroke="silver" stroke-width="1.5"/>
                 <circle cx="43" cy="40" r="2" fill="#333"/>
-                <path d="M54,40 L60,40" stroke="#333" stroke-width="2"/> 
+                <path d="M54,40 L60,40" stroke="#333" stroke-width="2"/>
                 <circle cx="20" cy="60" r="5" fill="#ffeaa7"/>
                 <rect x="18" y="60" width="4" height="10" fill="#ffeaa7" transform="rotate(-15 20 60)"/>
             </g>
@@ -229,11 +229,11 @@
         let obstacles = [];
         let particles = [];
         let floaters = [];
-        
+
         const boyPhrases = ["Come on Stuti!", "You got this!", "Go Go Go!", "Doing Great!", "Keep Running!", "Yay!", "Superb!", "Awesome!"];
         let activeSpeech = null;
 
-        // --- MOBILE AUDIO FIX ---
+        // --- AUDIO CONTEXT HANDLING ---
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioCtx;
 
@@ -243,13 +243,13 @@
             }
             // Mobile browsers require resume() on user interaction
             if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
+                audioCtx.resume().catch(e => console.error("Audio resume failed", e));
             }
         }
 
         function playSound(type) {
-            if (!audioCtx || audioCtx.state === 'suspended') return;
-            
+            if (!audioCtx) return;
+
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.connect(gain);
@@ -322,10 +322,10 @@
         function handleInput(e) {
             // Prevent default behavior (zooming/scrolling) on touch
             if(e.type === 'touchstart') {
-                e.preventDefault(); 
+                e.preventDefault();
             }
             // Wake audio context immediately
-            initAudio(); 
+            initAudio();
             doJump();
         }
 
@@ -354,7 +354,7 @@
 
         startBtn.addEventListener('touchstart', onStartClick, {passive: false});
         startBtn.addEventListener('click', onStartClick);
-        
+
         restartBtn.addEventListener('touchstart', onStartClick, {passive: false});
         restartBtn.addEventListener('click', onStartClick);
 
@@ -426,7 +426,7 @@
         function createParticles(x, y, color) {
             for(let i=0; i<5; i++) {
                 particles.push({
-                    x: x, 
+                    x: x,
                     y: y,
                     vx: (Math.random() - 0.5) * 5,
                     vy: (Math.random() - 0.5) * 5,
@@ -462,12 +462,12 @@
 
             // Platform Collision & Speech Trigger
             floaters.forEach(f => {
-                if (player.dy > 0 && 
-                    player.y + player.height > f.y && 
+                if (player.dy > 0 &&
+                    player.y + player.height > f.y &&
                     player.y + player.height < f.y + f.h + 20 &&
-                    player.x + player.width > f.x && 
+                    player.x + player.width > f.x &&
                     player.x < f.x + f.w) {
-                    
+
                     player.y = f.y - player.height;
                     player.dy = 0;
                     player.grounded = true;
@@ -486,7 +486,7 @@
             let bob = Math.sin(frames * 0.2) * 3;
             ctx.save();
             ctx.translate(player.x, player.y + (player.grounded ? bob : 0));
-            if(player.grounded) ctx.rotate(0.1); 
+            if(player.grounded) ctx.rotate(0.1);
             ctx.drawImage(girlImg, 0, 0, player.width, player.height);
             ctx.restore();
 
@@ -510,12 +510,12 @@
                     ctx.fill();
                 }
 
-                if (!obs.collected && 
+                if (!obs.collected &&
                     player.x < obs.x + obs.w &&
                     player.x + player.width > obs.x &&
                     player.y < obs.y + obs.h &&
                     player.y + player.height > obs.y) {
-                    
+
                     if (obs.type === 'heart') {
                         obs.collected = true;
                         score++;
@@ -567,7 +567,7 @@
             if (activeSpeech) {
                 activeSpeech.x -= gameSpeed;
                 activeSpeech.life--;
-                
+
                 ctx.save();
                 ctx.font = 'bold 16px Nunito';
                 let textWidth = ctx.measureText(activeSpeech.text).width;
@@ -610,7 +610,7 @@
 
         function drawBackground() {
             ctx.fillStyle = '#fff';
-            let x1 = (bgOffset * 0.5) % canvas.width + canvas.width; 
+            let x1 = (bgOffset * 0.5) % canvas.width + canvas.width;
             drawCloud(x1, 100, 1.2);
             let x2 = ((bgOffset * 0.2 + 400) % canvas.width) + canvas.width;
             drawCloud(x2, 200, 0.8);
@@ -634,7 +634,7 @@
                 text: text,
                 x: x,
                 y: y,
-                life: 180 
+                life: 180
             };
         }
 
