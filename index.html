@@ -233,28 +233,99 @@
         scene.add(dirLight);
 
         // --- TEXTURE LOADING ---
-        function loadGroundTexture() {
-            const loader = new THREE.TextureLoader();
-            const texture = loader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/terrain/grasslight-big.jpg');
+        function createRoadTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // Asphalt
+            ctx.fillStyle = '#333333';
+            ctx.fillRect(0, 0, 512, 512);
+
+            // Lane Lines (White Dashed)
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 8;
+            ctx.setLineDash([30, 40]);
+
+            // Two dividers for 3 lanes
+            // Canvas width 512. 3 lanes -> ~170px each.
+            // Lines at ~170 and ~340
+            ctx.beginPath();
+            ctx.moveTo(170, 0);
+            ctx.lineTo(170, 512);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(342, 0);
+            ctx.lineTo(342, 512);
+            ctx.stroke();
+
+            // Side lines (Solid White)
+            ctx.setLineDash([]);
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 10;
+            ctx.beginPath();
+            ctx.moveTo(10, 0);
+            ctx.lineTo(10, 512);
+            ctx.moveTo(502, 0);
+            ctx.lineTo(502, 512);
+            ctx.stroke();
+
+            const texture = new THREE.CanvasTexture(canvas);
             texture.wrapS = THREE.RepeatWrapping;
             texture.wrapT = THREE.RepeatWrapping;
-            texture.repeat.set(5, 10);
+            // The road is long, so we repeat vertically
+            texture.repeat.set(1, 20);
             return texture;
         }
 
-        // Ground
-        const groundGeo = new THREE.PlaneGeometry(100, 200);
+        function loadGroundTexture() {
+            // Simple noise or color for terrain
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#2d3436'; // Dark grey/green for mountains base
+            ctx.fillRect(0,0,64,64);
+            // Add some noise
+            for(let i=0; i<100; i++) {
+                ctx.fillStyle = Math.random() > 0.5 ? '#353b48' : '#2f3640';
+                ctx.fillRect(Math.random()*64, Math.random()*64, 2, 2);
+            }
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(50, 100);
+            return texture;
+        }
+
+        // Ground (Terrain)
+        const groundGeo = new THREE.PlaneGeometry(200, 200);
         const groundTex = loadGroundTexture();
         const groundMat = new THREE.MeshStandardMaterial({
             map: groundTex,
-            roughness: 0.8,
-            color: 0x99cc99 // Tint it slightly greener
+            roughness: 1.0,
         });
         const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
         ground.position.z = -50;
         ground.receiveShadow = true;
         scene.add(ground);
+
+        // Road
+        const roadGeo = new THREE.PlaneGeometry(8, 200); // Width 8 covers the 3 lanes nicely
+        const roadTex = createRoadTexture();
+        const roadMat = new THREE.MeshStandardMaterial({
+            map: roadTex,
+            roughness: 0.6,
+        });
+        const road = new THREE.Mesh(roadGeo, roadMat);
+        road.rotation.x = -Math.PI / 2;
+        road.position.z = -50;
+        road.position.y = 0.02; // Slightly above ground
+        road.receiveShadow = true;
+        scene.add(road);
 
         // --- AUDIO ENGINE ---
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -406,23 +477,31 @@
         // --- GAME OBJECTS ---
         let obstacles = [];
         let hearts = [];
+        let energyPacks = [];
         let mountains = [];
+        let streetLights = [];
+
+        // Powerup State
+        let isInvincible = false;
+        let invincibleTimer = 0;
+        let shieldMesh = null; // To be added to player
 
         function spawnMountains() {
              // Create initial mountains
              for (let z = -100; z < 50; z+=10) {
                  createMountainPair(z);
+                 if (z % 20 === 0) createStreetLightPair(z);
              }
         }
 
         function createMountainPair(z) {
              // Left Mountain
-             createMountain(-15 - Math.random() * 5, z, 0);
+             createMountain(-15 - Math.random() * 5, z);
              // Right Mountain
-             createMountain(15 + Math.random() * 5, z, 0);
+             createMountain(15 + Math.random() * 5, z);
         }
 
-        function createMountain(x, z, speedOffset) {
+        function createMountain(x, z) {
              const height = 10 + Math.random() * 15;
              const geo = new THREE.ConeGeometry(8 + Math.random() * 5, height, 4); // Low poly pyramid
              const mat = new THREE.MeshStandardMaterial({
@@ -436,8 +515,40 @@
              mountains.push(mesh);
         }
 
-        function updateMountains(delta, speed) {
-            // Move existing
+        function createStreetLightPair(z) {
+            createStreetLight(-6, z, false);
+            createStreetLight(6, z, true);
+        }
+
+        function createStreetLight(x, z, isRight) {
+             const group = new THREE.Group();
+             // Pole
+             const poleGeo = new THREE.CylinderGeometry(0.1, 0.1, 5, 8);
+             const poleMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+             const pole = new THREE.Mesh(poleGeo, poleMat);
+             pole.position.y = 2.5;
+             group.add(pole);
+
+             // Arm
+             const armGeo = new THREE.BoxGeometry(0.1, 0.1, 1.5);
+             const arm = new THREE.Mesh(armGeo, poleMat);
+             arm.position.set(isRight ? -0.5 : 0.5, 4.8, 0); // Stick out towards track
+             group.add(arm);
+
+             // Lamp
+             const lampGeo = new THREE.BoxGeometry(0.4, 0.1, 0.2);
+             const lampMat = new THREE.MeshStandardMaterial({ color: 0xffffaa, emissive: 0xffffaa });
+             const lamp = new THREE.Mesh(lampGeo, lampMat);
+             lamp.position.set(isRight ? -1.0 : 1.0, 4.7, 0);
+             group.add(lamp);
+
+             group.position.set(x, 0, z);
+             scene.add(group);
+             streetLights.push(group);
+        }
+
+        function updateEnvironment(delta, speed) {
+            // Move Mountains
             for (let i = mountains.length - 1; i >= 0; i--) {
                 let m = mountains[i];
                 m.position.z += speed * delta;
@@ -446,13 +557,15 @@
                     mountains.splice(i, 1);
                 }
             }
-            // Spawn new at horizon if needed
-            // Simple check: keep a steady stream
-            const lastM = mountains.length > 0 ? mountains[0] : null; // Note: array order shifts.
-            // Better: Just check count or distance.
-            // Since we recycle, let's just spawn continuously based on timer or z-gap?
-            // Actually, simplified: Randomly spawn at -100 if count is low is tricky with speed.
-            // Let's use a timer in the main loop or just ensuring coverage.
+            // Move Street Lights
+            for (let i = streetLights.length - 1; i >= 0; i--) {
+                let l = streetLights[i];
+                l.position.z += speed * delta;
+                if (l.position.z > 20) {
+                    scene.remove(l);
+                    streetLights.splice(i, 1);
+                }
+            }
         }
 
         // --- CHARACTERS ---
@@ -519,30 +632,45 @@
 
             // Legs (Capsules)
             const legGeo = new THREE.CapsuleGeometry(0.1, 0.5, 4, 8);
+            const shoeGeo = new THREE.BoxGeometry(0.12, 0.1, 0.2);
+            const shoeMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
 
             const leftLeg = new THREE.Mesh(legGeo, pantsMat);
             leftLeg.position.set(-0.15, 0.35, 0);
             leftLeg.castShadow = true;
             leftLeg.name = 'leftLeg';
+            const lShoe = new THREE.Mesh(shoeGeo, shoeMat);
+            lShoe.position.set(0, -0.3, 0.05);
+            leftLeg.add(lShoe);
             group.add(leftLeg);
 
             const rightLeg = new THREE.Mesh(legGeo, pantsMat);
             rightLeg.position.set(0.15, 0.35, 0);
             rightLeg.castShadow = true;
             rightLeg.name = 'rightLeg';
+            const rShoe = new THREE.Mesh(shoeGeo, shoeMat);
+            rShoe.position.set(0, -0.3, 0.05);
+            rightLeg.add(rShoe);
             group.add(rightLeg);
 
             // Arms (Capsules)
             const armGeo = new THREE.CapsuleGeometry(0.08, 0.45, 4, 8);
+            const handGeo = new THREE.SphereGeometry(0.09, 8, 8);
 
             const leftArm = new THREE.Mesh(armGeo, skinMat);
             leftArm.position.set(-0.35, 0.9, 0);
             leftArm.name = 'leftArm';
+            const lHand = new THREE.Mesh(handGeo, skinMat);
+            lHand.position.set(0, -0.25, 0);
+            leftArm.add(lHand);
             group.add(leftArm);
 
             const rightArm = new THREE.Mesh(armGeo, skinMat);
             rightArm.position.set(0.35, 0.9, 0);
             rightArm.name = 'rightArm';
+            const rHand = new THREE.Mesh(handGeo, skinMat);
+            rHand.position.set(0, -0.25, 0);
+            rightArm.add(rHand);
             group.add(rightArm);
 
             return group;
@@ -551,6 +679,20 @@
         // Add Player
         const player = createCharacter('girl');
         player.position.set(0, 0, 0);
+
+        // Add Shield (Initially hidden)
+        const shieldGeo = new THREE.SphereGeometry(0.8, 16, 16);
+        const shieldMat = new THREE.MeshBasicMaterial({
+            color: 0x00ffff,
+            transparent: true,
+            opacity: 0.3,
+            wireframe: true
+        });
+        shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+        shieldMesh.position.y = 1.0;
+        shieldMesh.visible = false;
+        player.add(shieldMesh);
+
         scene.add(player);
 
         // Add NPC (Sri) - Initially hidden or placed far away
@@ -559,15 +701,70 @@
         npc.rotation.y = -Math.PI / 2; // Facing track
         scene.add(npc);
 
-        // Motivating Guy (Running Alongside)
-        const motivatingGuy = createCharacter('boy');
+        // Car Creator
+        function createCar() {
+            const carGroup = new THREE.Group();
+
+            // Chassis
+            const chassisGeo = new THREE.BoxGeometry(2, 0.5, 4);
+            const chassisMat = new THREE.MeshStandardMaterial({ color: 0xff4757 }); // Red/Pinkish car
+            const chassis = new THREE.Mesh(chassisGeo, chassisMat);
+            chassis.position.y = 0.5;
+            chassis.castShadow = true;
+            carGroup.add(chassis);
+
+            // Cabin
+            const cabinGeo = new THREE.BoxGeometry(1.8, 0.6, 2);
+            const cabinMat = new THREE.MeshStandardMaterial({ color: 0x74b9ff, transparent: true, opacity: 0.9 });
+            const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+            cabin.position.y = 1.0;
+            cabin.position.z = -0.5;
+            carGroup.add(cabin);
+
+            // Wheels
+            const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.4, 16);
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x2f3542 });
+            const wheelPositions = [
+                [-1.1, 0.4, 1.2], [1.1, 0.4, 1.2],
+                [-1.1, 0.4, -1.2], [1.1, 0.4, -1.2]
+            ];
+
+            wheelPositions.forEach((pos, i) => {
+                const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+                wheel.rotation.z = Math.PI / 2;
+                wheel.position.set(...pos);
+                wheel.name = `wheel${i}`; // Tag for animation
+                carGroup.add(wheel);
+            });
+
+            return carGroup;
+        }
+
+        // Motivating Guy (In Car)
+        const motivatingGuyGroup = new THREE.Group();
+        const car = createCar();
+        motivatingGuyGroup.add(car);
+
+        const driver = createCharacter('boy');
         // Tint his shirt/pants to look different
-        motivatingGuy.children.forEach(c => {
+        driver.children.forEach(c => {
             if (c.material && c.material.color.getHex() === 0x3498db) c.material = new THREE.MeshStandardMaterial({ color: 0xe67e22 }); // Orange Shirt
         });
-        motivatingGuy.position.set(6, 0, 0);
-        motivatingGuy.rotation.y = -Math.PI / 2; // Facing track (side profile)
-        scene.add(motivatingGuy);
+        driver.scale.set(0.8, 0.8, 0.8);
+        driver.position.set(0, 0.8, -0.5); // Sit in cabin
+        driver.rotation.y = Math.PI; // Face forward (since car faces forward)
+        // Adjust limbs for sitting
+        const dLeftLeg = driver.getObjectByName('leftLeg');
+        const dRightLeg = driver.getObjectByName('rightLeg');
+        if(dLeftLeg) { dLeftLeg.rotation.x = -Math.PI/2; dLeftLeg.position.y += 0.2; dLeftLeg.position.z += 0.2; }
+        if(dRightLeg) { dRightLeg.rotation.x = -Math.PI/2; dRightLeg.position.y += 0.2; dRightLeg.position.z += 0.2; }
+
+        motivatingGuyGroup.add(driver);
+
+        motivatingGuyGroup.position.set(6, 0, 0);
+        scene.add(motivatingGuyGroup);
+
+        const motivatingGuy = motivatingGuyGroup; // Alias for update loop
 
         // Dialogue Logic
         const dialogueBubble = document.getElementById('dialogue-bubble');
@@ -576,30 +773,31 @@
         let dialogueVisible = false;
 
         function updateMotivatingGuy(delta, time) {
-            // He runs alongside at x = 6 (right side) or -6 (left side)
-            // Let's keep him on the right for now
-            motivatingGuy.position.z = player.position.z; // Stay with player
-            motivatingGuy.position.x = 4.5;
-            motivatingGuy.rotation.y = -Math.PI / 2; // Facing left (towards track)
+            // Car drives alongside at x = 6
+            motivatingGuy.position.z = player.position.z;
+            motivatingGuy.position.x = 6;
+            // Car faces -Z (forward)
+            motivatingGuy.rotation.y = 0;
 
-            // Animate running
-            animateCharacter(motivatingGuy, time, true);
+            // Animate Wheels
+            motivatingGuy.children[0].children.forEach(child => {
+                if (child.name && child.name.startsWith('wheel')) {
+                    child.rotation.x += speed * delta; // Spin wheels
+                }
+            });
 
             // Dialogue System
             dialogueTimer += delta;
             if (dialogueVisible) {
-                if (dialogueTimer > 2.5) { // Show for 2.5s
+                if (dialogueTimer > 2.5) {
                     dialogueVisible = false;
                     dialogueBubble.style.display = 'none';
                     dialogueTimer = 0;
                 }
 
-                // Update 2D Position
-                // Get head position
-                const headPos = new THREE.Vector3(0, 2.5, 0); // Approx head height
+                // Update 2D Position (Above Car)
+                const headPos = new THREE.Vector3(0, 3.0, 0);
                 headPos.applyMatrix4(motivatingGuy.matrixWorld);
-
-                // Project to 2D
                 headPos.project(camera);
 
                 const x = (headPos.x * .5 + .5) * window.innerWidth;
@@ -609,7 +807,7 @@
                 dialogueBubble.style.top = `${y}px`;
 
             } else {
-                if (dialogueTimer > 5) { // Cooldown 5s
+                if (dialogueTimer > 5) {
                     dialogueVisible = true;
                     dialogueBubble.innerText = phrases[Math.floor(Math.random() * phrases.length)];
                     dialogueBubble.style.display = 'block';
@@ -636,39 +834,125 @@
             obstacles.forEach(o => scene.remove(o.mesh));
             hearts.forEach(h => scene.remove(h.mesh));
             mountains.forEach(m => scene.remove(m));
+            streetLights.forEach(l => scene.remove(l));
             obstacles = [];
             hearts = [];
             mountains = [];
+            streetLights = [];
 
             spawnMountains(); // Reset environment
             initAudio();
         }
 
+        function createTrafficCone() {
+            const group = new THREE.Group();
+
+            // Cone Body
+            const coneGeo = new THREE.CylinderGeometry(0.02, 0.25, 0.7, 16);
+            const orangeMat = new THREE.MeshStandardMaterial({ color: 0xff6b00 });
+            const cone = new THREE.Mesh(coneGeo, orangeMat);
+            cone.position.y = 0.35;
+            group.add(cone);
+
+            // Base
+            const baseGeo = new THREE.BoxGeometry(0.5, 0.05, 0.5);
+            const base = new THREE.Mesh(baseGeo, orangeMat);
+            base.position.y = 0.025;
+            group.add(base);
+
+            // White Strip
+            const stripGeo = new THREE.CylinderGeometry(0.12, 0.2, 0.15, 16);
+            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+            const strip = new THREE.Mesh(stripGeo, whiteMat);
+            strip.position.y = 0.35;
+            group.add(strip);
+
+            group.traverse(o => { if(o.isMesh) o.castShadow = true; });
+            return group;
+        }
+
         function spawnObstacle() {
             if (!gameActive) return;
             const lane = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
-            const type = Math.random() > 0.5 ? 'rock' : 'barrier';
+            const rand = Math.random();
+            let type = 'rock';
+            if (rand > 0.7) type = 'barrier';
+            else if (rand > 0.4) type = 'cone';
 
             let mesh;
             if (type === 'rock') {
                 const geo = new THREE.DodecahedronGeometry(0.5);
-                const mat = new THREE.MeshStandardMaterial({ color: 0x808080 });
+                const mat = new THREE.MeshStandardMaterial({ color: 0x636e72 });
                 mesh = new THREE.Mesh(geo, mat);
                 mesh.position.y = 0.5;
+                mesh.castShadow = true;
+            } else if (type === 'cone') {
+                mesh = createTrafficCone();
             } else {
-                const geo = new THREE.BoxGeometry(1.5, 0.8, 0.5);
-                const mat = new THREE.MeshStandardMaterial({ color: 0xe74c3c });
-                mesh = new THREE.Mesh(geo, mat);
-                mesh.position.y = 0.4;
+                // Barrier
+                const group = new THREE.Group();
+                // Feet
+                const footGeo = new THREE.BoxGeometry(0.2, 0.1, 0.4);
+                const footMat = new THREE.MeshStandardMaterial({ color: 0x2d3436 });
+                const foot1 = new THREE.Mesh(footGeo, footMat); foot1.position.set(-0.6, 0.05, 0);
+                const foot2 = new THREE.Mesh(footGeo, footMat); foot2.position.set(0.6, 0.05, 0);
+                group.add(foot1, foot2);
+
+                // Board
+                const boardGeo = new THREE.BoxGeometry(1.4, 0.6, 0.1);
+                const boardMat = new THREE.MeshStandardMaterial({ color: 0xffce00 }); // Construction Yellow
+                const board = new THREE.Mesh(boardGeo, boardMat);
+                board.position.y = 0.4;
+
+                // Stripes (using simple geometry for now)
+                const stripeGeo = new THREE.BoxGeometry(0.2, 0.6, 0.11);
+                const stripeMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+                const s1 = new THREE.Mesh(stripeGeo, stripeMat); s1.position.set(-0.4, 0.4, 0);
+                const s2 = new THREE.Mesh(stripeGeo, stripeMat); s2.position.set(0, 0.4, 0);
+                const s3 = new THREE.Mesh(stripeGeo, stripeMat); s3.position.set(0.4, 0.4, 0);
+
+                group.add(board, s1, s2, s3);
+                group.traverse(o => { if(o.isMesh) o.castShadow = true; });
+                mesh = group;
             }
 
             mesh.position.x = lane * LANE_WIDTH;
             mesh.position.z = -50;
-            mesh.castShadow = true;
-            mesh.name = 'obstacle';
+            mesh.name = 'obstacle'; // Important for collision
 
             scene.add(mesh);
             obstacles.push({ mesh, active: true });
+        }
+
+        function createEnergyPack() {
+            const group = new THREE.Group();
+            const bodyGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.5, 16);
+            const bodyMat = new THREE.MeshStandardMaterial({
+                color: 0x00ff00,
+                emissive: 0x00ff00,
+                emissiveIntensity: 0.5
+            });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            group.add(body);
+
+            const capGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.05, 16);
+            const capMat = new THREE.MeshStandardMaterial({ color: 0x2d3436 });
+            const top = new THREE.Mesh(capGeo, capMat); top.position.y = 0.27;
+            const bot = new THREE.Mesh(capGeo, capMat); bot.position.y = -0.27;
+            group.add(top, bot);
+
+            group.traverse(o => { if(o.isMesh) o.castShadow = true; });
+            return group;
+        }
+
+        function spawnEnergyPack() {
+            if (!gameActive) return;
+            const lane = Math.floor(Math.random() * 3) - 1;
+            const mesh = createEnergyPack();
+            mesh.position.set(lane * LANE_WIDTH, 1.0, -50);
+            mesh.name = 'energy';
+            scene.add(mesh);
+            energyPacks.push({ mesh, active: true });
         }
 
         function spawnHeart() {
@@ -715,7 +999,14 @@
                 if (!o.active) return;
                 const obBox = new THREE.Box3().setFromObject(o.mesh);
                 if (playerBox.intersectsBox(obBox)) {
-                    gameOver();
+                    if (!isInvincible) {
+                        gameOver();
+                    } else {
+                        // Destroy obstacle if invincible
+                        o.active = false;
+                        scene.remove(o.mesh);
+                        playSound('hit'); // Different sound?
+                    }
                 }
             });
 
@@ -727,6 +1018,15 @@
                     collectHeart(h);
                 }
             });
+
+            // Energy Packs
+            energyPacks.forEach(e => {
+                if (!e.active) return;
+                const eBox = new THREE.Box3().setFromObject(e.mesh);
+                if (playerBox.intersectsBox(eBox)) {
+                    collectEnergy(e);
+                }
+            });
         }
 
         function collectHeart(heartObj) {
@@ -735,6 +1035,14 @@
             playSound('collect');
             score++;
             scoreDisplay.innerText = score;
+        }
+
+        function collectEnergy(eObj) {
+            eObj.active = false;
+            scene.remove(eObj.mesh);
+            playSound('collect'); // Or powerup sound
+            isInvincible = true;
+            invincibleTimer = 5.0;
         }
 
         function gameOver() {
@@ -859,8 +1167,10 @@
             if (gameActive) {
                 spawnTimer += delta;
                 if (spawnTimer > (20 / speed)) { // Spawn rate based on speed
-                    if (Math.random() > 0.3) spawnObstacle();
-                    else spawnHeart();
+                    const r = Math.random();
+                    if (r > 0.35) spawnObstacle();
+                    else if (r > 0.15) spawnHeart();
+                    else spawnEnergyPack(); // Rare chance
 
                     // Occasionally spawn Sri
                     if (Math.random() < 0.1) {
@@ -878,24 +1188,40 @@
                 // Scroll ground texture to simulate speed
                 // INVERTED: Changed -= to += to move texture towards camera (simulating forward motion)
                 groundTex.offset.y += (speed * delta) * 0.05;
+                roadTex.offset.y += (speed * delta) * 0.1; // Road texture
 
-                // Update Mountains
+                // Update Environment
                 mountainTimer += delta * speed;
                 if (mountainTimer > 10) { // Spawn new pair every 10 units
                     createMountainPair(-100);
+                    // Every 20 units (every other mountain spawn) spawn lights
+                    if (Math.random() > 0.3) createStreetLightPair(-100);
                     mountainTimer = 0;
                 }
-                updateMountains(delta, speed);
+                updateEnvironment(delta, speed);
+
+                // Handle Invincibility
+                if (isInvincible) {
+                    invincibleTimer -= delta;
+                    if (shieldMesh) shieldMesh.visible = true;
+                    // Rotate shield
+                    if (shieldMesh) shieldMesh.rotation.y += delta * 5;
+
+                    if (invincibleTimer <= 0) {
+                        isInvincible = false;
+                        if (shieldMesh) shieldMesh.visible = false;
+                    }
+                }
 
                 // Move Objects
-                [obstacles, hearts].forEach(arr => {
+                [obstacles, hearts, energyPacks].forEach(arr => {
                     for (let i = arr.length - 1; i >= 0; i--) {
                         let obj = arr[i];
                         if (obj.active) {
                             obj.mesh.position.z += speed * delta;
 
-                            if (obj.mesh.name === 'heart') {
-                                obj.mesh.rotation.y += delta * 2; // Spin hearts
+                            if (obj.mesh.name === 'heart' || obj.mesh.name === 'energy') {
+                                obj.mesh.rotation.y += delta * 2; // Spin pickups
                             }
 
                             if (obj.mesh.position.z > 10) {
