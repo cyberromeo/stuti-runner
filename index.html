@@ -115,6 +115,11 @@
             box-shadow: 0 0 0 #d956c8;
         }
 
+        .btn:focus-visible {
+            outline: 4px solid #d956c8;
+            outline-offset: 4px;
+        }
+
         .hidden {
             display: none !important;
         }
@@ -136,13 +141,13 @@
     <div id="start-screen">
         <h1>Run Stuti Run!</h1>
         <p>Tap anywhere to jump.<br>Sri will cheer you on!</p>
-        <div class="btn" id="startBtn">Start Running</div>
+        <button class="btn" id="startBtn">Start Running</button>
     </div>
 
     <div id="game-over-screen" class="hidden">
         <h1>Oh no!</h1>
         <p>You tripped! <br>Score: <span id="finalScore">0</span></p>
-        <div class="btn" id="restartBtn">Try Again</div>
+        <button class="btn" id="restartBtn">Try Again</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
