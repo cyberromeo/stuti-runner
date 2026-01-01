@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Run Stuti Run!</title>
+    <title>Run Stuti Run! - 3D</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700&display=swap');
 
@@ -12,11 +12,11 @@
             padding: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden; /* Lock the screen */
-            background-color: #ffe6e9;
+            overflow: hidden;
+            background-color: #87CEEB; /* Sky Blue */
             font-family: 'Nunito', sans-serif;
-            touch-action: none; /* Disables browser zooming/scrolling */
-            -webkit-user-select: none; /* Safari select disable */
+            touch-action: none;
+            -webkit-user-select: none;
             user-select: none;
         }
 
@@ -107,7 +107,7 @@
             box-shadow: 0 5px 0 #d956c8;
             transition: transform 0.1s;
             display: inline-block;
-            -webkit-tap-highlight-color: transparent; /* Remove mobile tap gray box */
+            -webkit-tap-highlight-color: transparent;
         }
 
         .btn:active {
@@ -119,6 +119,15 @@
             display: none !important;
         }
     </style>
+
+    <!-- Three.js Import Map -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
 </head>
 <body>
 
@@ -135,7 +144,7 @@
 
     <div id="start-screen">
         <h1>Run Stuti Run!</h1>
-        <p>Tap anywhere to jump.<br>Sri will cheer you on!</p>
+        <p>Swipe Left/Right to move.<br>Tap to Jump!</p>
         <div class="btn" id="startBtn">Start Running</div>
     </div>
 
@@ -145,95 +154,85 @@
         <div class="btn" id="restartBtn">Try Again</div>
     </div>
 
-    <canvas id="gameCanvas"></canvas>
+    <!-- No Canvas here, Three.js will append one -->
 
-    <script>
-        // --- ASSETS (Optimized SVGs) ---
-        const SVG_GIRL = `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-            <g id="body">
-                <path d="M20,30 Q10,50 15,80 L85,80 Q90,50 80,30 Z" fill="#2c3e50"/>
-                <rect x="35" y="60" width="30" height="25" rx="5" fill="#a8e6cf"/>
-                <circle cx="50" cy="70" r="5" fill="white" opacity="0.8"/>
-                <path d="M35,85 L35,95 M65,85 L65,95" stroke="#333" stroke-width="4" stroke-linecap="round"/>
-                <circle cx="50" cy="40" r="22" fill="#ffeaa7"/>
-                <path d="M28,25 Q50,45 72,25 Q50,10 28,25" fill="#2c3e50"/>
-                <path d="M28,25 Q15,40 20,60" fill="none" stroke="#2c3e50" stroke-width="2"/>
-                <path d="M72,25 Q85,40 80,60" fill="none" stroke="#2c3e50" stroke-width="2"/>
-                <g fill="none" stroke="#333" stroke-width="2">
-                    <circle cx="42" cy="42" r="6"/>
-                    <circle cx="58" cy="42" r="6"/>
-                    <line x1="48" y1="42" x2="52" y2="42"/>
-                </g>
-                <circle cx="42" cy="42" r="2" fill="#4a3b32"/>
-                <circle cx="58" cy="42" r="2" fill="#4a3b32"/>
-                <path d="M47,52 Q50,55 53,52" fill="none" stroke="#4a3b32" stroke-width="1.5"/>
-            </g>
-        </svg>`;
+    <script type="module">
+        import * as THREE from 'three';
 
-        const SVG_BOY = `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-             <path d="M10,80 Q25,60 40,80 T70,80 T90,80" fill="#f0f2f5" stroke="#dfe4ea" stroke-width="2"/>
-             <g transform="translate(0, -10)">
-                <path d="M30,90 L70,90 L65,60 L35,60 Z" fill="#74b9ff"/>
-                <path d="M48,70 L52,70 L50,80 Z" fill="white"/>
-                <path d="M30,90 Q10,95 35,95" fill="none" stroke="#333" stroke-width="5" stroke-linecap="round"/>
-                <path d="M70,90 Q90,95 65,95" fill="none" stroke="#333" stroke-width="5" stroke-linecap="round"/>
-                <circle cx="50" cy="40" r="20" fill="#ffeaa7"/>
-                <path d="M35,45 Q50,65 65,45 L65,40 L35,40 Z" fill="#5d4037" opacity="0.9"/>
-                <path d="M25,35 Q50,10 75,35 Q80,25 70,15 Q50,5 30,15 Q20,25 25,35" fill="#5d4037"/>
-                <circle cx="43" cy="40" r="5" fill="none" stroke="silver" stroke-width="1.5"/>
-                <circle cx="57" cy="40" r="5" fill="none" stroke="silver" stroke-width="1.5"/>
-                <line x1="48" y1="40" x2="52" y2="40" stroke="silver" stroke-width="1.5"/>
-                <circle cx="43" cy="40" r="2" fill="#333"/>
-                <path d="M54,40 L60,40" stroke="#333" stroke-width="2"/> 
-                <circle cx="20" cy="60" r="5" fill="#ffeaa7"/>
-                <rect x="18" y="60" width="4" height="10" fill="#ffeaa7" transform="rotate(-15 20 60)"/>
-            </g>
-        </svg>`;
+        // --- SCENE SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+        scene.fog = new THREE.Fog(0x87CEEB, 20, 50);
 
-        const SVG_HEART = `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-            <path d="M50,80 Q20,55 20,35 Q20,15 40,15 Q50,15 50,30 Q50,15 60,15 Q80,15 80,35 Q80,55 50,80 Z" fill="#ff4757" stroke="#ff6b81" stroke-width="2"/>
-        </svg>`;
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 3, 6);
+        camera.lookAt(0, 0, -2);
 
-        // --- GAME ENGINE ---
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
 
-        const girlImg = new Image(); girlImg.src = "data:image/svg+xml;base64," + btoa(SVG_GIRL);
-        const boyImg = new Image(); boyImg.src = "data:image/svg+xml;base64," + btoa(SVG_BOY);
-        const heartImg = new Image(); heartImg.src = "data:image/svg+xml;base64," + btoa(SVG_HEART);
+        // Lighting
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.6);
+        scene.add(hemiLight);
 
-        let gameActive = false;
-        let score = 0;
-        let highScore = localStorage.getItem('stutiRunnerHighScore') || 0;
-        let frames = 0;
-        let gameSpeed = 5;
-        let bgOffset = 0;
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 10);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.top = 20;
+        dirLight.shadow.camera.bottom = -20;
+        dirLight.shadow.camera.left = -20;
+        dirLight.shadow.camera.right = 20;
+        scene.add(dirLight);
 
-        let player = {
-            x: 50,
-            y: 0,
-            width: 60,
-            height: 60,
-            dy: 0,
-            jumpForce: 13,
-            grounded: false,
-            originalY: 0
-        };
+        // --- TEXTURE GENERATION ---
+        function createGroundTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const context = canvas.getContext('2d');
 
-        const gravity = 0.6;
-        const groundHeight = 100;
+            // Base Color (Dirt/Sand)
+            context.fillStyle = '#e6bf83';
+            context.fillRect(0, 0, 512, 512);
 
-        let obstacles = [];
-        let particles = [];
-        let floaters = [];
-        
-        const boyPhrases = ["Come on Stuti!", "You got this!", "Go Go Go!", "Doing Great!", "Keep Running!", "Yay!", "Superb!", "Awesome!"];
-        let activeSpeech = null;
+            // Noise
+            for(let i=0; i<5000; i++) {
+                context.fillStyle = Math.random() > 0.5 ? '#d4a362' : '#f5d6a6';
+                const x = Math.random() * 512;
+                const y = Math.random() * 512;
+                const size = Math.random() * 3;
+                context.fillRect(x, y, size, size);
+            }
 
-        // --- MOBILE AUDIO FIX ---
+            // Lane markers
+            context.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            context.fillRect(170, 0, 10, 512);
+            context.fillRect(342, 0, 10, 512);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(5, 10); // Repeat across wide ground
+
+            return texture;
+        }
+
+        // Ground
+        const groundGeo = new THREE.PlaneGeometry(100, 200);
+        const groundTex = createGroundTexture();
+        const groundMat = new THREE.MeshStandardMaterial({
+            map: groundTex,
+            roughness: 0.8
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.z = -50;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // --- AUDIO ENGINE (Preserved) ---
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioCtx;
 
@@ -241,7 +240,6 @@
             if (!audioCtx) {
                 audioCtx = new AudioContext();
             }
-            // Mobile browsers require resume() on user interaction
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume();
             }
@@ -249,7 +247,7 @@
 
         function playSound(type) {
             if (!audioCtx || audioCtx.state === 'suspended') return;
-            
+
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.connect(gain);
@@ -297,345 +295,292 @@
             }
         }
 
-        // --- MOBILE INPUT HANDLING ---
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            player.originalY = canvas.height - groundHeight - player.height;
-            if(player.grounded) player.y = player.originalY;
-        }
-        window.addEventListener('resize', resize);
-        resize();
+        // --- GAME STATE ---
+        let gameActive = false;
+        let score = 0;
+        let highScore = localStorage.getItem('stutiRunnerHighScore') || 0;
+        let speed = 10;
+        const LANE_WIDTH = 2;
 
-        function doJump() {
-            if (!gameActive) return;
-            if (player.grounded) {
-                player.dy = -player.jumpForce;
-                player.grounded = false;
-                initAudio(); // Ensure audio wakes up
-                playSound('jump');
-                createParticles(player.x + player.width/2, player.y + player.height, '#fff');
-            }
-        }
+        // Player State
+        let currentLane = 0; // -1 (Left), 0 (Center), 1 (Right)
+        let targetX = 0;
+        let playerY = 0;
+        let verticalVelocity = 0;
+        const GRAVITY = 0.015;
+        const JUMP_FORCE = 0.35;
+        let isJumping = false;
 
-        // Universal input handler
-        function handleInput(e) {
-            // Prevent default behavior (zooming/scrolling) on touch
-            if(e.type === 'touchstart') {
-                e.preventDefault(); 
-            }
-            // Wake audio context immediately
-            initAudio(); 
-            doJump();
-        }
-
-        // Attach listeners
-        window.addEventListener('touchstart', handleInput, {passive: false});
-        window.addEventListener('mousedown', handleInput);
-        window.addEventListener('keydown', (e) => {
-            if(e.code === 'Space' || e.code === 'ArrowUp') {
-                initAudio();
-                doJump();
-            }
-        });
-
-        // --- BUTTON HANDLING ---
-        // We use 'touchend' for buttons to avoid conflict with the game jump listener
-        // and to ensure clean clicking on mobile.
+        // --- UI REFS ---
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const highScoreDisplay = document.getElementById('highScoreDisplay');
+        const finalScoreDisplay = document.getElementById('finalScore');
         const startBtn = document.getElementById('startBtn');
         const restartBtn = document.getElementById('restartBtn');
 
-        function onStartClick(e) {
-            e.stopPropagation(); // Don't trigger a jump immediately
-            e.preventDefault();
-            initAudio(); // Critical for mobile sound
-            startGame();
+        highScoreDisplay.innerText = highScore;
+
+        // --- GAME OBJECTS ---
+        let obstacles = [];
+        let hearts = [];
+        let mountains = [];
+
+        function spawnMountains() {
+             // Create initial mountains
+             for (let z = -100; z < 50; z+=10) {
+                 createMountainPair(z);
+             }
         }
 
-        startBtn.addEventListener('touchstart', onStartClick, {passive: false});
-        startBtn.addEventListener('click', onStartClick);
-        
-        restartBtn.addEventListener('touchstart', onStartClick, {passive: false});
-        restartBtn.addEventListener('click', onStartClick);
+        function createMountainPair(z) {
+             // Left Mountain
+             createMountain(-15 - Math.random() * 5, z, 0);
+             // Right Mountain
+             createMountain(15 + Math.random() * 5, z, 0);
+        }
 
+        function createMountain(x, z, speedOffset) {
+             const height = 10 + Math.random() * 15;
+             const geo = new THREE.ConeGeometry(8 + Math.random() * 5, height, 4); // Low poly pyramid
+             const mat = new THREE.MeshStandardMaterial({
+                 color: Math.random() > 0.5 ? 0x8B4513 : 0xA0522D, // SaddleBrown / Sienna
+                 flatShading: true
+             });
+             const mesh = new THREE.Mesh(geo, mat);
+             mesh.position.set(x, height/2 - 2, z);
+             mesh.rotation.y = Math.random() * Math.PI;
+             scene.add(mesh);
+             mountains.push(mesh);
+        }
 
+        function updateMountains(delta, speed) {
+            // Move existing
+            for (let i = mountains.length - 1; i >= 0; i--) {
+                let m = mountains[i];
+                m.position.z += speed * delta;
+                if (m.position.z > 20) {
+                    scene.remove(m);
+                    mountains.splice(i, 1);
+                }
+            }
+            // Spawn new at horizon if needed
+            // Simple check: keep a steady stream
+            const lastM = mountains.length > 0 ? mountains[0] : null; // Note: array order shifts.
+            // Better: Just check count or distance.
+            // Since we recycle, let's just spawn continuously based on timer or z-gap?
+            // Actually, simplified: Randomly spawn at -100 if count is low is tricky with speed.
+            // Let's use a timer in the main loop or just ensuring coverage.
+        }
+
+        // --- CHARACTERS ---
+        function createCharacter(type) {
+            const group = new THREE.Group();
+
+            // Materials
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xffccaa });
+            const darkMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+            const shirtColor = type === 'girl' ? 0x2ecc71 : 0x3498db; // Green for Stuti, Blue for Sri
+            const shirtMat = new THREE.MeshStandardMaterial({ color: shirtColor });
+            const pantsMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50 });
+
+            // Head
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), skinMat);
+            head.position.y = 1.6;
+            head.castShadow = true;
+            group.add(head);
+
+            // Hair
+            const hair = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.2, 0.65), darkMat);
+            hair.position.y = 1.9;
+            group.add(hair);
+
+            if (type === 'girl') {
+                // Ponytail
+                const pony = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.2), darkMat);
+                pony.position.set(0, 1.7, -0.4);
+                group.add(pony);
+            } else {
+                 // Beard
+                const beard = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.2, 0.62), darkMat);
+                beard.position.set(0, 1.4, 0.05);
+                group.add(beard);
+            }
+
+            // Glasses
+            const glasses = new THREE.Group();
+            const rim1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.05), darkMat);
+            rim1.position.set(-0.15, 0, 0);
+            const rim2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.05), darkMat);
+            rim2.position.set(0.15, 0, 0);
+            const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 0.05), darkMat);
+            glasses.add(rim1, rim2, bridge);
+            glasses.position.set(0, 1.6, 0.31);
+            group.add(glasses);
+
+            // Body
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.3), shirtMat);
+            body.position.y = 1;
+            body.castShadow = true;
+            group.add(body);
+
+            // Legs (Separate for animation)
+            const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.2), pantsMat);
+            leftLeg.position.set(-0.15, 0.35, 0);
+            leftLeg.castShadow = true;
+            leftLeg.name = 'leftLeg';
+            group.add(leftLeg);
+
+            const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.2), pantsMat);
+            rightLeg.position.set(0.15, 0.35, 0);
+            rightLeg.castShadow = true;
+            rightLeg.name = 'rightLeg';
+            group.add(rightLeg);
+
+            // Arms
+            const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.5, 0.15), skinMat);
+            leftArm.position.set(-0.35, 1, 0);
+            leftArm.name = 'leftArm';
+            group.add(leftArm);
+
+            const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.5, 0.15), skinMat);
+            rightArm.position.set(0.35, 1, 0);
+            rightArm.name = 'rightArm';
+            group.add(rightArm);
+
+            return group;
+        }
+
+        // Add Player
+        const player = createCharacter('girl');
+        player.position.set(0, 0, 0);
+        scene.add(player);
+
+        // Add NPC (Sri) - Initially hidden or placed far away
+        const npc = createCharacter('boy');
+        npc.position.set(5, 0, -10); // Side of track
+        npc.rotation.y = -Math.PI / 2; // Facing track
+        scene.add(npc);
+
+        // --- GAME CONTROL ---
         function startGame() {
-            document.getElementById('start-screen').classList.add('hidden');
-            document.getElementById('game-over-screen').classList.add('hidden');
-            document.getElementById('highScoreDisplay').innerText = highScore;
-            resetVars();
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+
+            // Reset Vars
             gameActive = true;
-            loop();
-        }
-
-        function resetGame() {
-            startGame();
-        }
-
-        function resetVars() {
             score = 0;
-            document.getElementById('scoreDisplay').innerText = score;
-            gameSpeed = 6;
-            obstacles = [];
-            floaters = [];
-            particles = [];
-            activeSpeech = null;
-            resize(); // Force position reset
-            player.y = player.originalY;
-            player.dy = 0;
-            player.grounded = true;
-            frames = 0;
-        }
+            scoreDisplay.innerText = score;
+            speed = 10;
+            currentLane = 0;
+            targetX = 0;
+            player.position.set(0, 0, 0);
 
-        // --- GAME LOGIC ---
+            // Clear old objects
+            obstacles.forEach(o => scene.remove(o.mesh));
+            hearts.forEach(h => scene.remove(h.mesh));
+            mountains.forEach(m => scene.remove(m));
+            obstacles = [];
+            hearts = [];
+            mountains = [];
+
+            spawnMountains(); // Reset environment
+            initAudio();
+        }
 
         function spawnObstacle() {
-            const type = Math.random() > 0.3 ? 'heart' : 'rock';
-            if (type === 'heart') {
-                let hY = player.originalY - 50 - Math.random() * 100;
-                obstacles.push({
-                    type: 'heart',
-                    x: canvas.width,
-                    y: hY,
-                    w: 40,
-                    h: 40,
-                    collected: false
-                });
-            } else {
-                obstacles.push({
-                    type: 'rock',
-                    x: canvas.width,
-                    y: player.originalY + 20,
-                    w: 40,
-                    h: 40
-                });
-            }
-        }
-
-        function spawnFloater() {
-            floaters.push({
-                x: canvas.width,
-                y: player.originalY - 120,
-                w: 120,
-                h: 20,
-                hasBoy: true,
-                triggered: false
-            });
-        }
-
-        function createParticles(x, y, color) {
-            for(let i=0; i<5; i++) {
-                particles.push({
-                    x: x, 
-                    y: y,
-                    vx: (Math.random() - 0.5) * 5,
-                    vy: (Math.random() - 0.5) * 5,
-                    life: 1,
-                    color: color
-                });
-            }
-        }
-
-        function loop() {
             if (!gameActive) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            frames++;
+            const lane = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
+            const type = Math.random() > 0.5 ? 'rock' : 'barrier';
 
-            bgOffset -= gameSpeed * 0.2;
-            drawBackground();
-
-            ctx.fillStyle = '#ffafbd';
-            ctx.fillRect(0, canvas.height - groundHeight, canvas.width, groundHeight);
-            ctx.fillStyle = '#ffc3a0';
-            ctx.fillRect(0, canvas.height - groundHeight, canvas.width, 20);
-
-            player.dy += gravity;
-            player.y += player.dy;
-
-            if (player.y > player.originalY) {
-                player.y = player.originalY;
-                player.dy = 0;
-                player.grounded = true;
+            let mesh;
+            if (type === 'rock') {
+                const geo = new THREE.DodecahedronGeometry(0.5);
+                const mat = new THREE.MeshStandardMaterial({ color: 0x808080 });
+                mesh = new THREE.Mesh(geo, mat);
+                mesh.position.y = 0.5;
             } else {
-                player.grounded = false;
+                const geo = new THREE.BoxGeometry(1.5, 0.8, 0.5);
+                const mat = new THREE.MeshStandardMaterial({ color: 0xe74c3c });
+                mesh = new THREE.Mesh(geo, mat);
+                mesh.position.y = 0.4;
             }
 
-            // Platform Collision & Speech Trigger
-            floaters.forEach(f => {
-                if (player.dy > 0 && 
-                    player.y + player.height > f.y && 
-                    player.y + player.height < f.y + f.h + 20 &&
-                    player.x + player.width > f.x && 
-                    player.x < f.x + f.w) {
-                    
-                    player.y = f.y - player.height;
-                    player.dy = 0;
-                    player.grounded = true;
-                }
+            mesh.position.x = lane * LANE_WIDTH;
+            mesh.position.z = -50;
+            mesh.castShadow = true;
+            mesh.name = 'obstacle';
 
-                // Automatic Trigger (Proximity)
-                if(f.hasBoy && !f.triggered) {
-                    if (Math.abs(player.x - f.x) < 300) {
-                        f.triggered = true;
-                        triggerBoySpeech(f.x, f.y);
-                        playSound('cheer');
-                    }
+            scene.add(mesh);
+            obstacles.push({ mesh, active: true });
+        }
+
+        function spawnHeart() {
+            if (!gameActive) return;
+            const lane = Math.floor(Math.random() * 3) - 1;
+
+            const shape = new THREE.Shape();
+            const x = 0, y = 0;
+            shape.moveTo(x + 0.25, y + 0.25);
+            shape.bezierCurveTo(x + 0.25, y + 0.25, x + 0.20, y, x, y);
+            shape.bezierCurveTo(x - 0.30, y, x - 0.30, y + 0.35, x - 0.30, y + 0.35);
+            shape.bezierCurveTo(x - 0.30, y + 0.55, x - 0.10, y + 0.77, x + 0.25, y + 0.95);
+            shape.bezierCurveTo(x + 0.60, y + 0.77, x + 0.80, y + 0.55, x + 0.80, y + 0.35);
+            shape.bezierCurveTo(x + 0.80, y + 0.35, x + 0.80, y, x + 0.50, y);
+            shape.bezierCurveTo(x + 0.35, y, x + 0.25, y + 0.25, x + 0.25, y + 0.25);
+
+            const extrudeSettings = { depth: 0.2, bevelEnabled: false };
+            const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+            const mat = new THREE.MeshStandardMaterial({ color: 0xff4757 });
+            const mesh = new THREE.Mesh(geo, mat);
+
+            mesh.rotation.x = Math.PI; // Flip heart upright
+            mesh.rotation.y = Math.PI;
+
+            // Randomly high (jump) or low
+            const isHigh = Math.random() > 0.5;
+            mesh.position.y = isHigh ? 2.5 : 1.0;
+            mesh.position.x = lane * LANE_WIDTH - 0.25; // Center correction
+            mesh.position.z = -50;
+            mesh.name = 'heart';
+
+            scene.add(mesh);
+            hearts.push({ mesh, active: true });
+        }
+
+        function checkCollisions() {
+            // Player Bounds
+            const playerBox = new THREE.Box3().setFromObject(player);
+            // Shrink player box slightly for fairness
+            playerBox.expandByScalar(-0.2);
+
+            // Obstacles
+            obstacles.forEach(o => {
+                if (!o.active) return;
+                const obBox = new THREE.Box3().setFromObject(o.mesh);
+                if (playerBox.intersectsBox(obBox)) {
+                    gameOver();
                 }
             });
 
-            let bob = Math.sin(frames * 0.2) * 3;
-            ctx.save();
-            ctx.translate(player.x, player.y + (player.grounded ? bob : 0));
-            if(player.grounded) ctx.rotate(0.1); 
-            ctx.drawImage(girlImg, 0, 0, player.width, player.height);
-            ctx.restore();
-
-            for (let i = obstacles.length - 1; i >= 0; i--) {
-                let obs = obstacles[i];
-                obs.x -= gameSpeed;
-
-                if (obs.type === 'heart') {
-                    if (!obs.collected) {
-                        let floatY = Math.sin(frames * 0.1) * 5;
-                        ctx.drawImage(heartImg, obs.x, obs.y + floatY, obs.w, obs.h);
-                    }
-                } else if (obs.type === 'rock') {
-                    ctx.fillStyle = '#95a5a6';
-                    ctx.beginPath();
-                    ctx.arc(obs.x + obs.w/2, obs.y + obs.h/2, obs.w/2, 0, Math.PI*2);
-                    ctx.fill();
-                    ctx.fillStyle = '#7f8c8d';
-                    ctx.beginPath();
-                    ctx.arc(obs.x + obs.w/2 - 5, obs.y + obs.h/2 - 5, 5, 0, Math.PI*2);
-                    ctx.fill();
+            // Hearts
+            hearts.forEach(h => {
+                if (!h.active) return;
+                const hBox = new THREE.Box3().setFromObject(h.mesh);
+                if (playerBox.intersectsBox(hBox)) {
+                    collectHeart(h);
                 }
-
-                if (!obs.collected && 
-                    player.x < obs.x + obs.w &&
-                    player.x + player.width > obs.x &&
-                    player.y < obs.y + obs.h &&
-                    player.y + player.height > obs.y) {
-                    
-                    if (obs.type === 'heart') {
-                        obs.collected = true;
-                        score++;
-                        document.getElementById('scoreDisplay').innerText = score;
-                        playSound('collect');
-                        createParticles(obs.x + obs.w/2, obs.y + obs.h/2, '#ff4757');
-                    } else if (obs.type === 'rock') {
-                        gameOver();
-                    }
-                }
-
-                if (obs.x + obs.w < 0) obstacles.splice(i, 1);
-            }
-
-            for (let i = floaters.length - 1; i >= 0; i--) {
-                let f = floaters[i];
-                f.x -= gameSpeed;
-
-                ctx.fillStyle = '#fff';
-                ctx.beginPath();
-                if(ctx.roundRect) {
-                     ctx.roundRect(f.x, f.y, f.w, f.h, 10);
-                } else {
-                     ctx.rect(f.x, f.y, f.w, f.h);
-                }
-                ctx.fill();
-
-                if (f.hasBoy) {
-                    ctx.drawImage(boyImg, f.x + 30, f.y - 50, 60, 60);
-                }
-
-                if (f.x + f.w < 0) floaters.splice(i, 1);
-            }
-
-            for(let i=particles.length-1; i>=0; i--) {
-                let p = particles[i];
-                p.x += p.vx;
-                p.y += p.vy;
-                p.life -= 0.05;
-                ctx.globalAlpha = p.life;
-                ctx.fillStyle = p.color;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, 3, 0, Math.PI*2);
-                ctx.fill();
-                ctx.globalAlpha = 1;
-                if(p.life <= 0) particles.splice(i, 1);
-            }
-
-            if (activeSpeech) {
-                activeSpeech.x -= gameSpeed;
-                activeSpeech.life--;
-                
-                ctx.save();
-                ctx.font = 'bold 16px Nunito';
-                let textWidth = ctx.measureText(activeSpeech.text).width;
-                let bubbleW = textWidth + 30;
-                let bubbleH = 40;
-                let bx = activeSpeech.x + 40;
-                let by = activeSpeech.y - 80;
-
-                ctx.fillStyle = 'white';
-                ctx.beginPath();
-                ctx.moveTo(bx, by + bubbleH);
-                ctx.lineTo(bx + 10, by + bubbleH + 10);
-                ctx.lineTo(bx + 20, by + bubbleH);
-                ctx.fill();
-
-                ctx.beginPath();
-                if(ctx.roundRect) {
-                     ctx.roundRect(bx - 10, by, bubbleW, bubbleH, 10);
-                } else {
-                     ctx.rect(bx - 10, by, bubbleW, bubbleH);
-                }
-                ctx.fill();
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-
-                ctx.fillStyle = '#333';
-                ctx.fillText(activeSpeech.text, bx + 5, by + 25);
-                ctx.restore();
-
-                if (activeSpeech.life <= 0) activeSpeech = null;
-            }
-
-            if (frames % 100 === 0) spawnObstacle();
-            if (frames % 600 === 0) spawnFloater();
-
-            gameSpeed += 0.001;
-            requestAnimationFrame(loop);
+            });
         }
 
-        function drawBackground() {
-            ctx.fillStyle = '#fff';
-            let x1 = (bgOffset * 0.5) % canvas.width + canvas.width; 
-            drawCloud(x1, 100, 1.2);
-            let x2 = ((bgOffset * 0.2 + 400) % canvas.width) + canvas.width;
-            drawCloud(x2, 200, 0.8);
-        }
-
-        function drawCloud(x, y, scale) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.scale(scale, scale);
-            ctx.beginPath();
-            ctx.arc(0, 0, 30, 0, Math.PI*2);
-            ctx.arc(40, 0, 40, 0, Math.PI*2);
-            ctx.arc(80, 0, 30, 0, Math.PI*2);
-            ctx.fill();
-            ctx.restore();
-        }
-
-        function triggerBoySpeech(x, y) {
-            const text = boyPhrases[Math.floor(Math.random() * boyPhrases.length)];
-            activeSpeech = {
-                text: text,
-                x: x,
-                y: y,
-                life: 180 
-            };
+        function collectHeart(heartObj) {
+            heartObj.active = false;
+            scene.remove(heartObj.mesh);
+            playSound('collect');
+            score++;
+            scoreDisplay.innerText = score;
         }
 
         function gameOver() {
@@ -645,24 +590,211 @@
                 highScore = score;
                 localStorage.setItem('stutiRunnerHighScore', highScore);
             }
-            document.getElementById('finalScore').innerText = score;
-            document.getElementById('game-over-screen').classList.remove('hidden');
+            finalScoreDisplay.innerText = score;
+            gameOverScreen.classList.remove('hidden');
         }
 
-        if (!CanvasRenderingContext2D.prototype.roundRect) {
-            CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
-                if (w < 2 * r) r = w / 2;
-                if (h < 2 * r) r = h / 2;
-                this.beginPath();
-                this.moveTo(x + r, y);
-                this.arcTo(x + w, y, x + w, y + h, r);
-                this.arcTo(x + w, y + h, x, y + h, r);
-                this.arcTo(x, y + h, x, y, r);
-                this.arcTo(x, y, x + w, y, r);
-                this.closePath();
-                return this;
+        // Button Listeners
+        function onStartClick(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            startGame();
+        }
+
+        startBtn.addEventListener('touchstart', onStartClick, {passive: false});
+        startBtn.addEventListener('click', onStartClick);
+
+        restartBtn.addEventListener('touchstart', onStartClick, {passive: false});
+        restartBtn.addEventListener('click', onStartClick);
+
+        // --- INPUT HANDLING ---
+        function moveLane(direction) {
+            if (!gameActive) return;
+
+            if (direction === 'left' && currentLane > -1) {
+                currentLane--;
+            } else if (direction === 'right' && currentLane < 1) {
+                currentLane++;
+            }
+            targetX = currentLane * LANE_WIDTH;
+        }
+
+        function jump() {
+            if (!gameActive) return;
+            if (!isJumping) {
+                verticalVelocity = JUMP_FORCE;
+                isJumping = true;
+                playSound('jump');
             }
         }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') moveLane('left');
+            if (e.key === 'ArrowRight') moveLane('right');
+            if (e.key === 'ArrowUp' || e.key === ' ') jump();
+        });
+
+        // Touch / Swipe
+        let touchStartX = 0;
+        let touchStartY = 0;
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, {passive: false});
+
+        document.addEventListener('touchend', (e) => {
+            const touchEndX = e.changedTouches[0].screenX;
+            const touchEndY = e.changedTouches[0].screenY;
+
+            const dx = touchEndX - touchStartX;
+            const dy = touchEndY - touchStartY;
+
+            if (Math.abs(dx) > Math.abs(dy)) {
+                // Horizontal Swipe
+                if (Math.abs(dx) > 30) {
+                    if (dx > 0) moveLane('right');
+                    else moveLane('left');
+                }
+            } else {
+                // Vertical Tap/Swipe
+                if (dy < -30 || Math.abs(dy) < 10) { // Swipe Up or Tap
+                    jump();
+                }
+            }
+        }, {passive: false});
+
+        // Animation Vars
+        let runTime = 0;
+
+        function animateCharacter(char, time, isRunning) {
+            const leftLeg = char.getObjectByName('leftLeg');
+            const rightLeg = char.getObjectByName('rightLeg');
+            const leftArm = char.getObjectByName('leftArm');
+            const rightArm = char.getObjectByName('rightArm');
+
+            if (isRunning) {
+                // Running swing
+                const swing = Math.sin(time * 15) * 0.5;
+                leftLeg.rotation.x = swing;
+                rightLeg.rotation.x = -swing;
+                leftArm.rotation.x = -swing;
+                rightArm.rotation.x = swing;
+            } else {
+                // Idle / Wave
+                leftLeg.rotation.x = 0;
+                rightLeg.rotation.x = 0;
+                // Wave right arm
+                rightArm.rotation.z = Math.PI - 0.5 + Math.sin(time * 10) * 0.2;
+                rightArm.rotation.x = 0;
+                leftArm.rotation.x = 0;
+            }
+        }
+
+        // Loop
+        const clock = new THREE.Clock();
+        let spawnTimer = 0;
+        let mountainTimer = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+            if (gameActive) {
+                spawnTimer += delta;
+                if (spawnTimer > (20 / speed)) { // Spawn rate based on speed
+                    if (Math.random() > 0.3) spawnObstacle();
+                    else spawnHeart();
+
+                    // Occasionally spawn Sri
+                    if (Math.random() < 0.1) {
+                         npc.position.z = -50;
+                         npc.position.x = (Math.random() > 0.5 ? -4 : 4); // Far Left or Right
+                         npc.visible = true;
+                         playSound('cheer');
+                    }
+                    spawnTimer = 0;
+                }
+
+                // Increase speed gradually
+                speed += delta * 0.1;
+
+                // Scroll ground texture to simulate speed
+                groundTex.offset.y -= (speed * delta) * 0.05;
+
+                // Update Mountains
+                mountainTimer += delta * speed;
+                if (mountainTimer > 10) { // Spawn new pair every 10 units
+                    createMountainPair(-100);
+                    mountainTimer = 0;
+                }
+                updateMountains(delta, speed);
+
+                // Move Objects
+                [obstacles, hearts].forEach(arr => {
+                    for (let i = arr.length - 1; i >= 0; i--) {
+                        let obj = arr[i];
+                        if (obj.active) {
+                            obj.mesh.position.z += speed * delta;
+
+                            if (obj.mesh.name === 'heart') {
+                                obj.mesh.rotation.y += delta * 2; // Spin hearts
+                            }
+
+                            if (obj.mesh.position.z > 10) {
+                                scene.remove(obj.mesh);
+                                arr.splice(i, 1);
+                            }
+                        } else {
+                            arr.splice(i, 1);
+                        }
+                    }
+                });
+
+                // Move NPC if visible
+                if (npc.visible) {
+                    npc.position.z += speed * delta;
+                    if (npc.position.z > 10) npc.visible = false;
+                }
+
+                // Player Movement (Lerp X)
+                player.position.x += (targetX - player.position.x) * 10 * delta;
+
+                // Jump Physics
+                player.position.y += verticalVelocity;
+                verticalVelocity -= GRAVITY;
+
+                if (player.position.y <= 0) {
+                    player.position.y = 0;
+                    isJumping = false;
+                    verticalVelocity = 0;
+                }
+
+                checkCollisions();
+
+                // Animate Player
+                animateCharacter(player, time, true);
+
+                // Animate NPC
+                animateCharacter(npc, time, false);
+
+            } else {
+                // Idle animation
+                animateCharacter(player, time, false);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Handle Window Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
