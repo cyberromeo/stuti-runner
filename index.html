@@ -186,20 +186,51 @@
         dirLight.shadow.camera.right = 20;
         scene.add(dirLight);
 
+        // --- TEXTURE GENERATION ---
+        function createGroundTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const context = canvas.getContext('2d');
+
+            // Base Color (Dirt/Sand)
+            context.fillStyle = '#e6bf83';
+            context.fillRect(0, 0, 512, 512);
+
+            // Noise
+            for(let i=0; i<5000; i++) {
+                context.fillStyle = Math.random() > 0.5 ? '#d4a362' : '#f5d6a6';
+                const x = Math.random() * 512;
+                const y = Math.random() * 512;
+                const size = Math.random() * 3;
+                context.fillRect(x, y, size, size);
+            }
+
+            // Lane markers
+            context.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            context.fillRect(170, 0, 10, 512);
+            context.fillRect(342, 0, 10, 512);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(5, 10); // Repeat across wide ground
+
+            return texture;
+        }
+
         // Ground
         const groundGeo = new THREE.PlaneGeometry(100, 200);
-        const groundMat = new THREE.MeshStandardMaterial({ color: 0xffd1dc }); // Pinkish ground
+        const groundTex = createGroundTexture();
+        const groundMat = new THREE.MeshStandardMaterial({
+            map: groundTex,
+            roughness: 0.8
+        });
         const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
         ground.position.z = -50;
         ground.receiveShadow = true;
         scene.add(ground);
-
-        // Grid helper for speed illusion
-        const gridHelper = new THREE.GridHelper(100, 50, 0xffffff, 0xffffff);
-        gridHelper.position.y = 0.01;
-        gridHelper.position.z = -50;
-        scene.add(gridHelper);
 
         // --- AUDIO ENGINE (Preserved) ---
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -294,6 +325,54 @@
         // --- GAME OBJECTS ---
         let obstacles = [];
         let hearts = [];
+        let mountains = [];
+
+        function spawnMountains() {
+             // Create initial mountains
+             for (let z = -100; z < 50; z+=10) {
+                 createMountainPair(z);
+             }
+        }
+
+        function createMountainPair(z) {
+             // Left Mountain
+             createMountain(-15 - Math.random() * 5, z, 0);
+             // Right Mountain
+             createMountain(15 + Math.random() * 5, z, 0);
+        }
+
+        function createMountain(x, z, speedOffset) {
+             const height = 10 + Math.random() * 15;
+             const geo = new THREE.ConeGeometry(8 + Math.random() * 5, height, 4); // Low poly pyramid
+             const mat = new THREE.MeshStandardMaterial({
+                 color: Math.random() > 0.5 ? 0x8B4513 : 0xA0522D, // SaddleBrown / Sienna
+                 flatShading: true
+             });
+             const mesh = new THREE.Mesh(geo, mat);
+             mesh.position.set(x, height/2 - 2, z);
+             mesh.rotation.y = Math.random() * Math.PI;
+             scene.add(mesh);
+             mountains.push(mesh);
+        }
+
+        function updateMountains(delta, speed) {
+            // Move existing
+            for (let i = mountains.length - 1; i >= 0; i--) {
+                let m = mountains[i];
+                m.position.z += speed * delta;
+                if (m.position.z > 20) {
+                    scene.remove(m);
+                    mountains.splice(i, 1);
+                }
+            }
+            // Spawn new at horizon if needed
+            // Simple check: keep a steady stream
+            const lastM = mountains.length > 0 ? mountains[0] : null; // Note: array order shifts.
+            // Better: Just check count or distance.
+            // Since we recycle, let's just spawn continuously based on timer or z-gap?
+            // Actually, simplified: Randomly spawn at -100 if count is low is tricky with speed.
+            // Let's use a timer in the main loop or just ensuring coverage.
+        }
 
         // --- CHARACTERS ---
         function createCharacter(type) {
@@ -402,9 +481,12 @@
             // Clear old objects
             obstacles.forEach(o => scene.remove(o.mesh));
             hearts.forEach(h => scene.remove(h.mesh));
+            mountains.forEach(m => scene.remove(m));
             obstacles = [];
             hearts = [];
+            mountains = [];
 
+            spawnMountains(); // Reset environment
             initAudio();
         }
 
@@ -611,6 +693,7 @@
         // Loop
         const clock = new THREE.Clock();
         let spawnTimer = 0;
+        let mountainTimer = 0;
 
         function animate() {
             requestAnimationFrame(animate);
@@ -637,9 +720,16 @@
                 // Increase speed gradually
                 speed += delta * 0.1;
 
-                // Scroll ground/grid texture to simulate speed
-                gridHelper.position.z += speed * delta;
-                if (gridHelper.position.z > 0) gridHelper.position.z = -50;
+                // Scroll ground texture to simulate speed
+                groundTex.offset.y -= (speed * delta) * 0.05;
+
+                // Update Mountains
+                mountainTimer += delta * speed;
+                if (mountainTimer > 10) { // Spawn new pair every 10 units
+                    createMountainPair(-100);
+                    mountainTimer = 0;
+                }
+                updateMountains(delta, speed);
 
                 // Move Objects
                 [obstacles, hearts].forEach(arr => {
