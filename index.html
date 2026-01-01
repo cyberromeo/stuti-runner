@@ -118,6 +118,50 @@
         .hidden {
             display: none !important;
         }
+
+        #dialogue-bubble {
+            position: absolute;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 15px;
+            border: 2px solid #333;
+            font-family: 'Fredoka One', cursive;
+            color: #333;
+            font-size: 1rem;
+            pointer-events: none;
+            white-space: nowrap;
+            display: none; /* Hidden by default */
+            z-index: 20;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            transform: translate(-50%, -100%); /* Center horizontally, sit on top */
+        }
+
+        #dialogue-bubble:after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 8px 8px 0;
+            border-style: solid;
+            border-color: #333 transparent;
+            display: block;
+            width: 0;
+        }
+
+        #dialogue-bubble:before {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 8px 8px 0;
+            border-style: solid;
+            border-color: #fff transparent;
+            display: block;
+            width: 0;
+            z-index: 1;
+        }
     </style>
 
     <!-- Three.js Import Map -->
@@ -154,6 +198,8 @@
         <div class="btn" id="restartBtn">Try Again</div>
     </div>
 
+    <div id="dialogue-bubble">Run Stuti Run!</div>
+
     <!-- No Canvas here, Three.js will append one -->
 
     <script type="module">
@@ -186,45 +232,23 @@
         dirLight.shadow.camera.right = 20;
         scene.add(dirLight);
 
-        // --- TEXTURE GENERATION ---
-        function createGroundTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 512;
-            canvas.height = 512;
-            const context = canvas.getContext('2d');
-
-            // Base Color (Dirt/Sand)
-            context.fillStyle = '#e6bf83';
-            context.fillRect(0, 0, 512, 512);
-
-            // Noise
-            for(let i=0; i<5000; i++) {
-                context.fillStyle = Math.random() > 0.5 ? '#d4a362' : '#f5d6a6';
-                const x = Math.random() * 512;
-                const y = Math.random() * 512;
-                const size = Math.random() * 3;
-                context.fillRect(x, y, size, size);
-            }
-
-            // Lane markers
-            context.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            context.fillRect(170, 0, 10, 512);
-            context.fillRect(342, 0, 10, 512);
-
-            const texture = new THREE.CanvasTexture(canvas);
+        // --- TEXTURE LOADING ---
+        function loadGroundTexture() {
+            const loader = new THREE.TextureLoader();
+            const texture = loader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/terrain/grasslight-big.jpg');
             texture.wrapS = THREE.RepeatWrapping;
             texture.wrapT = THREE.RepeatWrapping;
-            texture.repeat.set(5, 10); // Repeat across wide ground
-
+            texture.repeat.set(5, 10);
             return texture;
         }
 
         // Ground
         const groundGeo = new THREE.PlaneGeometry(100, 200);
-        const groundTex = createGroundTexture();
+        const groundTex = loadGroundTexture();
         const groundMat = new THREE.MeshStandardMaterial({
             map: groundTex,
-            roughness: 0.8
+            roughness: 0.8,
+            color: 0x99cc99 // Tint it slightly greener
         });
         const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
@@ -232,17 +256,74 @@
         ground.receiveShadow = true;
         scene.add(ground);
 
-        // --- AUDIO ENGINE (Preserved) ---
+        // --- AUDIO ENGINE ---
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioCtx;
+        let bgmOscillators = [];
+        let bgmGain;
 
         function initAudio() {
             if (!audioCtx) {
                 audioCtx = new AudioContext();
             }
             if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
+                audioCtx.resume().then(() => {
+                    console.log('AudioContext resumed!');
+                    startBackgroundMusic();
+                });
+            } else {
+                 startBackgroundMusic();
             }
+        }
+
+        function startBackgroundMusic() {
+            if (!audioCtx || bgmOscillators.length > 0) return;
+
+            // Simple Bassline Loop
+            const bassFreqs = [110, 110, 146, 130]; // A2, A2, D3, C3
+            let step = 0;
+            bgmGain = audioCtx.createGain();
+            bgmGain.gain.value = 0.05; // Low volume
+            bgmGain.connect(audioCtx.destination);
+
+            function playNote() {
+                if (!gameActive && bgmOscillators.length === 0) return; // Stop if game over (logic handled elsewhere)
+
+                const osc = audioCtx.createOscillator();
+                osc.type = 'square';
+                osc.frequency.value = bassFreqs[step % 4];
+                osc.connect(bgmGain);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.4);
+
+                step++;
+                // Schedule next note
+                setTimeout(playNote, 500);
+            }
+
+            // Just a simple interval for now to avoid complexity with scheduling
+            // playNote(); // Use a simpler approach for "Background Loop" using a dedicated oscillator
+
+            // DRONE Style BGM (Easier to manage)
+            const osc1 = audioCtx.createOscillator();
+            osc1.type = 'triangle';
+            osc1.frequency.value = 110;
+            osc1.connect(bgmGain);
+            osc1.start();
+            bgmOscillators.push(osc1);
+
+            const osc2 = audioCtx.createOscillator();
+            osc2.type = 'sine';
+            osc2.frequency.value = 220;
+            osc2.detune.value = 5; // Slight detune for chorus effect
+            osc2.connect(bgmGain);
+            osc2.start();
+            bgmOscillators.push(osc2);
+        }
+
+        function stopBackgroundMusic() {
+            bgmOscillators.forEach(o => o.stop());
+            bgmOscillators = [];
         }
 
         function playSound(type) {
@@ -386,67 +467,81 @@
             const shirtMat = new THREE.MeshStandardMaterial({ color: shirtColor });
             const pantsMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50 });
 
-            // Head
-            const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), skinMat);
+            // Head (Sphere)
+            const headGeo = new THREE.SphereGeometry(0.35, 16, 16);
+            const head = new THREE.Mesh(headGeo, skinMat);
             head.position.y = 1.6;
             head.castShadow = true;
             group.add(head);
 
-            // Hair
-            const hair = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.2, 0.65), darkMat);
-            hair.position.y = 1.9;
+            // Hair (Sphere/Capsule blend)
+            const hairGeo = new THREE.SphereGeometry(0.37, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.5);
+            const hair = new THREE.Mesh(hairGeo, darkMat);
+            hair.position.y = 1.6;
+            hair.rotation.x = 0; // Top of head
             group.add(hair);
 
             if (type === 'girl') {
-                // Ponytail
-                const pony = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.2), darkMat);
-                pony.position.set(0, 1.7, -0.4);
+                // Ponytail (Capsule) - Placed at +Z (Back)
+                const ponyGeo = new THREE.CapsuleGeometry(0.1, 0.3, 4, 8);
+                const pony = new THREE.Mesh(ponyGeo, darkMat);
+                pony.position.set(0, 1.6, 0.35); // Back of head
+                pony.rotation.x = Math.PI / 4;
                 group.add(pony);
             } else {
-                 // Beard
-                const beard = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.2, 0.62), darkMat);
-                beard.position.set(0, 1.4, 0.05);
+                 // Beard/Hair styling for boy
+                const beardGeo = new THREE.CapsuleGeometry(0.36, 0.1, 4, 8);
+                const beard = new THREE.Mesh(beardGeo, darkMat);
+                beard.rotation.z = Math.PI / 2;
+                beard.position.set(0, 1.4, 0);
                 group.add(beard);
             }
 
-            // Glasses
+            // Glasses - Placed at -Z (Front)
             const glasses = new THREE.Group();
-            const rim1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.05), darkMat);
-            rim1.position.set(-0.15, 0, 0);
-            const rim2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.05), darkMat);
-            rim2.position.set(0.15, 0, 0);
-            const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 0.05), darkMat);
+            const rimGeo = new THREE.BoxGeometry(0.15, 0.1, 0.05);
+            const rim1 = new THREE.Mesh(rimGeo, darkMat);
+            rim1.position.set(-0.1, 0, 0);
+            const rim2 = new THREE.Mesh(rimGeo, darkMat);
+            rim2.position.set(0.1, 0, 0);
+            const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.05), darkMat);
             glasses.add(rim1, rim2, bridge);
-            glasses.position.set(0, 1.6, 0.31);
+
+            glasses.position.set(0, 1.6, -0.32); // Front of face (negative Z)
             group.add(glasses);
 
-            // Body
-            const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.3), shirtMat);
-            body.position.y = 1;
+            // Body (Capsule)
+            const bodyGeo = new THREE.CapsuleGeometry(0.25, 0.4, 4, 8);
+            const body = new THREE.Mesh(bodyGeo, shirtMat);
+            body.position.y = 0.9;
             body.castShadow = true;
             group.add(body);
 
-            // Legs (Separate for animation)
-            const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.2), pantsMat);
+            // Legs (Capsules)
+            const legGeo = new THREE.CapsuleGeometry(0.1, 0.5, 4, 8);
+
+            const leftLeg = new THREE.Mesh(legGeo, pantsMat);
             leftLeg.position.set(-0.15, 0.35, 0);
             leftLeg.castShadow = true;
             leftLeg.name = 'leftLeg';
             group.add(leftLeg);
 
-            const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.2), pantsMat);
+            const rightLeg = new THREE.Mesh(legGeo, pantsMat);
             rightLeg.position.set(0.15, 0.35, 0);
             rightLeg.castShadow = true;
             rightLeg.name = 'rightLeg';
             group.add(rightLeg);
 
-            // Arms
-            const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.5, 0.15), skinMat);
-            leftArm.position.set(-0.35, 1, 0);
+            // Arms (Capsules)
+            const armGeo = new THREE.CapsuleGeometry(0.08, 0.45, 4, 8);
+
+            const leftArm = new THREE.Mesh(armGeo, skinMat);
+            leftArm.position.set(-0.35, 0.9, 0);
             leftArm.name = 'leftArm';
             group.add(leftArm);
 
-            const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.5, 0.15), skinMat);
-            rightArm.position.set(0.35, 1, 0);
+            const rightArm = new THREE.Mesh(armGeo, skinMat);
+            rightArm.position.set(0.35, 0.9, 0);
             rightArm.name = 'rightArm';
             group.add(rightArm);
 
@@ -463,6 +558,65 @@
         npc.position.set(5, 0, -10); // Side of track
         npc.rotation.y = -Math.PI / 2; // Facing track
         scene.add(npc);
+
+        // Motivating Guy (Running Alongside)
+        const motivatingGuy = createCharacter('boy');
+        // Tint his shirt/pants to look different
+        motivatingGuy.children.forEach(c => {
+            if (c.material && c.material.color.getHex() === 0x3498db) c.material = new THREE.MeshStandardMaterial({ color: 0xe67e22 }); // Orange Shirt
+        });
+        motivatingGuy.position.set(6, 0, 0);
+        motivatingGuy.rotation.y = -Math.PI / 2; // Facing track (side profile)
+        scene.add(motivatingGuy);
+
+        // Dialogue Logic
+        const dialogueBubble = document.getElementById('dialogue-bubble');
+        const phrases = ["Run Stuti Run!", "You got this!", "Don't give up!", "Faster!", "Almost there!", "Believe in yourself!"];
+        let dialogueTimer = 0;
+        let dialogueVisible = false;
+
+        function updateMotivatingGuy(delta, time) {
+            // He runs alongside at x = 6 (right side) or -6 (left side)
+            // Let's keep him on the right for now
+            motivatingGuy.position.z = player.position.z; // Stay with player
+            motivatingGuy.position.x = 4.5;
+            motivatingGuy.rotation.y = -Math.PI / 2; // Facing left (towards track)
+
+            // Animate running
+            animateCharacter(motivatingGuy, time, true);
+
+            // Dialogue System
+            dialogueTimer += delta;
+            if (dialogueVisible) {
+                if (dialogueTimer > 2.5) { // Show for 2.5s
+                    dialogueVisible = false;
+                    dialogueBubble.style.display = 'none';
+                    dialogueTimer = 0;
+                }
+
+                // Update 2D Position
+                // Get head position
+                const headPos = new THREE.Vector3(0, 2.5, 0); // Approx head height
+                headPos.applyMatrix4(motivatingGuy.matrixWorld);
+
+                // Project to 2D
+                headPos.project(camera);
+
+                const x = (headPos.x * .5 + .5) * window.innerWidth;
+                const y = (-(headPos.y * .5) + .5) * window.innerHeight;
+
+                dialogueBubble.style.left = `${x}px`;
+                dialogueBubble.style.top = `${y}px`;
+
+            } else {
+                if (dialogueTimer > 5) { // Cooldown 5s
+                    dialogueVisible = true;
+                    dialogueBubble.innerText = phrases[Math.floor(Math.random() * phrases.length)];
+                    dialogueBubble.style.display = 'block';
+                    dialogueTimer = 0;
+                }
+            }
+        }
 
         // --- GAME CONTROL ---
         function startGame() {
@@ -585,6 +739,7 @@
 
         function gameOver() {
             gameActive = false;
+            stopBackgroundMusic();
             playSound('hit');
             if (score > highScore) {
                 highScore = score;
@@ -721,7 +876,8 @@
                 speed += delta * 0.1;
 
                 // Scroll ground texture to simulate speed
-                groundTex.offset.y -= (speed * delta) * 0.05;
+                // INVERTED: Changed -= to += to move texture towards camera (simulating forward motion)
+                groundTex.offset.y += (speed * delta) * 0.05;
 
                 // Update Mountains
                 mountainTimer += delta * speed;
@@ -779,9 +935,14 @@
                 // Animate NPC
                 animateCharacter(npc, time, false);
 
+                // Animate Motivating Guy
+                updateMotivatingGuy(delta, time);
+
             } else {
                 // Idle animation
                 animateCharacter(player, time, false);
+                // Motivating guy idle
+                animateCharacter(motivatingGuy, time, false);
             }
 
             renderer.render(scene, camera);
