@@ -162,6 +162,73 @@
             width: 0;
             z-index: 1;
         }
+
+        #insta-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            color: #d6249f; /* Insta Gradient dominant color approximation */
+            pointer-events: auto;
+            z-index: 100;
+        }
+
+        #mute-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px; /* Adjust based on HUD layout */
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            font-size: 1.5rem;
+            pointer-events: auto;
+            z-index: 100;
+        }
+
+        #insta-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            position: relative;
+            max-width: 300px;
+        }
+
+        #close-modal {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #aaa;
+        }
     </style>
 
     <!-- Three.js Import Map -->
@@ -198,6 +265,27 @@
         <div class="btn" id="restartBtn">Try Again</div>
     </div>
 
+    <!-- Instagram Button -->
+    <div id="insta-btn">
+        <svg viewBox="0 0 24 24" width="24" height="24">
+            <rect x="2" y="2" width="20" height="20" rx="5" ry="5" stroke="currentColor" stroke-width="2" fill="none"/>
+            <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="2" fill="none"/>
+            <circle cx="18" cy="6" r="1.5" fill="currentColor"/>
+        </svg>
+    </div>
+
+    <!-- Mute Button -->
+    <div id="mute-btn">🔊</div>
+
+    <!-- Instagram Modal -->
+    <div id="insta-modal" class="hidden">
+        <div class="modal-content">
+            <span id="close-modal">&times;</span>
+            <p>Follow Srihari on Instagram!</p>
+            <div class="btn" id="followBtn">Follow @sri__14</div>
+        </div>
+    </div>
+
     <div id="dialogue-bubble">Run Stuti Run!</div>
 
     <!-- No Canvas here, Three.js will append one -->
@@ -207,8 +295,11 @@
 
         // --- SCENE SETUP ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB);
-        scene.fog = new THREE.Fog(0x87CEEB, 20, 50);
+        // Pastel Gradient Logic - Simple single color for now, but distinct from Sky Blue
+        // Vaporwave Pastel Purple/Pinkish
+        const bgCol = new THREE.Color(0xfac3e0); // Soft Pink
+        scene.background = bgCol;
+        scene.fog = new THREE.Fog(bgCol, 20, 50);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
         camera.position.set(0, 3, 6);
@@ -217,13 +308,15 @@
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
+        renderer.outputColorSpace = THREE.SRGBColorSpace; // Better color accuracy for pastel
         document.body.appendChild(renderer.domElement);
 
         // Lighting
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.6);
+        // Vaporwave = Soft ambient + sharp accents
+        const hemiLight = new THREE.HemisphereLight(0xffe6fa, 0x080820, 0.8); // Pink Sky, Dark Blue Ground
         scene.add(hemiLight);
 
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6); // Softer sun
         dirLight.position.set(10, 20, 10);
         dirLight.castShadow = true;
         dirLight.shadow.camera.top = 20;
@@ -239,18 +332,19 @@
             canvas.height = 512;
             const ctx = canvas.getContext('2d');
 
-            // Asphalt
-            ctx.fillStyle = '#333333';
+            // Vaporwave Road: Deep Purple / Violet
+            ctx.fillStyle = '#2d1b4e';
             ctx.fillRect(0, 0, 512, 512);
 
-            // Lane Lines (White Dashed)
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 8;
-            ctx.setLineDash([30, 40]);
+            // Grid Pattern / Glow Lines
+            // Lane Lines (Cyan Glow)
+            ctx.strokeStyle = '#00f2ff';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#00f2ff';
+            ctx.lineWidth = 6;
+            ctx.setLineDash([40, 50]);
 
             // Two dividers for 3 lanes
-            // Canvas width 512. 3 lanes -> ~170px each.
-            // Lines at ~170 and ~340
             ctx.beginPath();
             ctx.moveTo(170, 0);
             ctx.lineTo(170, 512);
@@ -261,9 +355,10 @@
             ctx.lineTo(342, 512);
             ctx.stroke();
 
-            // Side lines (Solid White)
+            // Side lines (Solid Pink/Magenta Glow)
             ctx.setLineDash([]);
-            ctx.strokeStyle = '#ffffff';
+            ctx.strokeStyle = '#ff00ff';
+            ctx.shadowColor = '#ff00ff';
             ctx.lineWidth = 10;
             ctx.beginPath();
             ctx.moveTo(10, 0);
@@ -276,27 +371,33 @@
             texture.wrapS = THREE.RepeatWrapping;
             texture.wrapT = THREE.RepeatWrapping;
             // The road is long, so we repeat vertically
-            texture.repeat.set(1, 20);
+            texture.repeat.set(1, 10);
+            texture.anisotropy = 16;
             return texture;
         }
 
         function loadGroundTexture() {
-            // Simple noise or color for terrain
+            // Low Poly "Grid" or "Pastel" ground
             const canvas = document.createElement('canvas');
             canvas.width = 64;
             canvas.height = 64;
             const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#2d3436'; // Dark grey/green for mountains base
+            // Base: Soft dark violet
+            ctx.fillStyle = '#1e1133';
             ctx.fillRect(0,0,64,64);
-            // Add some noise
-            for(let i=0; i<100; i++) {
-                ctx.fillStyle = Math.random() > 0.5 ? '#353b48' : '#2f3640';
-                ctx.fillRect(Math.random()*64, Math.random()*64, 2, 2);
-            }
+
+            // Grid lines
+            ctx.strokeStyle = '#3a206e';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0,0); ctx.lineTo(64,0);
+            ctx.moveTo(0,0); ctx.lineTo(0,64);
+            ctx.stroke();
+
             const texture = new THREE.CanvasTexture(canvas);
             texture.wrapS = THREE.RepeatWrapping;
             texture.wrapT = THREE.RepeatWrapping;
-            texture.repeat.set(50, 100);
+            texture.repeat.set(100, 100);
             return texture;
         }
 
@@ -305,7 +406,8 @@
         const groundTex = loadGroundTexture();
         const groundMat = new THREE.MeshStandardMaterial({
             map: groundTex,
-            roughness: 1.0,
+            roughness: 0.8,
+            metalness: 0.1
         });
         const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
@@ -332,6 +434,7 @@
         let audioCtx;
         let bgmOscillators = [];
         let bgmGain;
+        let isMuted = false;
 
         function initAudio() {
             if (!audioCtx) {
@@ -350,51 +453,60 @@
         function startBackgroundMusic() {
             if (!audioCtx || bgmOscillators.length > 0) return;
 
-            // Simple Bassline Loop
-            const bassFreqs = [110, 110, 146, 130]; // A2, A2, D3, C3
-            let step = 0;
             bgmGain = audioCtx.createGain();
-            bgmGain.gain.value = 0.05; // Low volume
+            // Softer volume for ambient
+            bgmGain.gain.value = isMuted ? 0 : 0.08;
             bgmGain.connect(audioCtx.destination);
 
-            function playNote() {
-                if (!gameActive && bgmOscillators.length === 0) return; // Stop if game over (logic handled elsewhere)
-
-                const osc = audioCtx.createOscillator();
-                osc.type = 'square';
-                osc.frequency.value = bassFreqs[step % 4];
-                osc.connect(bgmGain);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.4);
-
-                step++;
-                // Schedule next note
-                setTimeout(playNote, 500);
-            }
-
-            // Just a simple interval for now to avoid complexity with scheduling
-            // playNote(); // Use a simpler approach for "Background Loop" using a dedicated oscillator
-
-            // DRONE Style BGM (Easier to manage)
+            // Ambient / Vaporwave Pad
+            // 1. Fundamental Pad (Sine/Triangle)
             const osc1 = audioCtx.createOscillator();
-            osc1.type = 'triangle';
-            osc1.frequency.value = 110;
+            osc1.type = 'sine';
+            osc1.frequency.value = 164.81; // E3 (Major 7th vibe?)
             osc1.connect(bgmGain);
             osc1.start();
             bgmOscillators.push(osc1);
 
+            // 2. Harmony (Major 3rd above)
             const osc2 = audioCtx.createOscillator();
-            osc2.type = 'sine';
-            osc2.frequency.value = 220;
-            osc2.detune.value = 5; // Slight detune for chorus effect
+            osc2.type = 'triangle';
+            osc2.frequency.value = 207.65; // G#3
+            osc2.detune.value = 10; // Chorus effect
             osc2.connect(bgmGain);
             osc2.start();
             bgmOscillators.push(osc2);
+
+            // 3. Slow LFO for "Wobble" (Simulating Vaporwave tape warble)
+            const lfo = audioCtx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.value = 0.5; // 0.5 Hz
+            const lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 5; // Depth of pitch wobble
+            lfo.connect(lfoGain);
+            lfoGain.connect(osc1.detune);
+            lfoGain.connect(osc2.detune);
+            lfo.start();
+            bgmOscillators.push(lfo);
+            // Note: LFO is pushed to array so we can stop it later
         }
 
         function stopBackgroundMusic() {
             bgmOscillators.forEach(o => o.stop());
             bgmOscillators = [];
+        }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            const btn = document.getElementById('mute-btn');
+            if (isMuted) {
+                btn.innerText = '🔇';
+                if (bgmGain) bgmGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+            } else {
+                btn.innerText = '🔊';
+                if (bgmGain) bgmGain.gain.setTargetAtTime(0.08, audioCtx.currentTime, 0.1);
+                // Resume context if needed
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+            }
         }
 
         function playSound(type) {
@@ -705,37 +817,75 @@
         function createCar() {
             const carGroup = new THREE.Group();
 
-            // Chassis
-            const chassisGeo = new THREE.BoxGeometry(2, 0.5, 4);
-            const chassisMat = new THREE.MeshStandardMaterial({ color: 0xff4757 }); // Red/Pinkish car
-            const chassis = new THREE.Mesh(chassisGeo, chassisMat);
-            chassis.position.y = 0.5;
+            // Low Poly Sports Car Design
+            // Body Color: Cyan/Teal Gradient feel (approximated by solid color + lighting)
+            const bodyColor = 0x00d2d3;
+            const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.3, metalness: 0.5 });
+
+            // Main Chassis
+            const chassisGeo = new THREE.BoxGeometry(2.2, 0.6, 4.2);
+            // Taper the front slightly? (Hard with Box, stick to composite)
+            const chassis = new THREE.Mesh(chassisGeo, bodyMat);
+            chassis.position.y = 0.6;
             chassis.castShadow = true;
             carGroup.add(chassis);
 
-            // Cabin
-            const cabinGeo = new THREE.BoxGeometry(1.8, 0.6, 2);
-            const cabinMat = new THREE.MeshStandardMaterial({ color: 0x74b9ff, transparent: true, opacity: 0.9 });
+            // Top Cabin (sloped)
+            const cabinGeo = new THREE.BoxGeometry(1.8, 0.5, 2.0);
+            const cabinMat = new THREE.MeshStandardMaterial({ color: 0x222f3e, roughness: 0.1 }); // Dark glass
             const cabin = new THREE.Mesh(cabinGeo, cabinMat);
-            cabin.position.y = 1.0;
-            cabin.position.z = -0.5;
+            cabin.position.set(0, 1.15, -0.3);
             carGroup.add(cabin);
 
-            // Wheels
-            const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.4, 16);
-            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x2f3542 });
+            // Spoiler
+            const spoilerPostGeo = new THREE.BoxGeometry(0.1, 0.4, 0.2);
+            const post1 = new THREE.Mesh(spoilerPostGeo, bodyMat); post1.position.set(-0.8, 1.0, 1.8);
+            const post2 = new THREE.Mesh(spoilerPostGeo, bodyMat); post2.position.set(0.8, 1.0, 1.8);
+            carGroup.add(post1, post2);
+
+            const spoilerWingGeo = new THREE.BoxGeometry(2.2, 0.1, 0.6);
+            const spoiler = new THREE.Mesh(spoilerWingGeo, bodyMat);
+            spoiler.position.set(0, 1.2, 1.8);
+            carGroup.add(spoiler);
+
+            // Glow Strips (Underglow / Neon accents)
+            const glowMat = new THREE.MeshStandardMaterial({ color: 0xff00ff, emissive: 0xff00ff, emissiveIntensity: 2.0 });
+
+            // Rear Lights
+            const lightGeo = new THREE.BoxGeometry(0.8, 0.1, 0.1);
+            const rLight1 = new THREE.Mesh(lightGeo, glowMat); rLight1.position.set(-0.6, 0.7, 2.15);
+            const rLight2 = new THREE.Mesh(lightGeo, glowMat); rLight2.position.set(0.6, 0.7, 2.15);
+            carGroup.add(rLight1, rLight2);
+
+            // Wheels (Thicker, Sportier)
+            const wheelGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.5, 32);
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+            // Glowing Rims
+            const rimGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.51, 16);
+            const rimMat = new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 1.0 });
+
             const wheelPositions = [
-                [-1.1, 0.4, 1.2], [1.1, 0.4, 1.2],
-                [-1.1, 0.4, -1.2], [1.1, 0.4, -1.2]
+                [-1.1, 0.45, 1.3], [1.1, 0.45, 1.3],
+                [-1.1, 0.45, -1.3], [1.1, 0.45, -1.3]
             ];
 
             wheelPositions.forEach((pos, i) => {
-                const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-                wheel.rotation.z = Math.PI / 2;
-                wheel.position.set(...pos);
-                wheel.name = `wheel${i}`; // Tag for animation
-                carGroup.add(wheel);
+                const wGroup = new THREE.Group();
+                const tire = new THREE.Mesh(wheelGeo, wheelMat);
+                tire.rotation.z = Math.PI / 2;
+                const rim = new THREE.Mesh(rimGeo, rimMat);
+                rim.rotation.z = Math.PI / 2;
+
+                wGroup.add(tire, rim);
+                wGroup.position.set(...pos);
+                wGroup.name = `wheel${i}`;
+                carGroup.add(wGroup);
             });
+
+            // Local Light for "Glow"
+            const carLight = new THREE.PointLight(0x00ffff, 2, 8);
+            carLight.position.set(0, 1, 0);
+            carGroup.add(carLight);
 
             return carGroup;
         }
@@ -752,7 +902,7 @@
         });
         driver.scale.set(0.8, 0.8, 0.8);
         driver.position.set(0, 0.8, -0.5); // Sit in cabin
-        driver.rotation.y = Math.PI; // Face forward (since car faces forward)
+        driver.rotation.y = Math.PI; // Face forward
         // Adjust limbs for sitting
         const dLeftLeg = driver.getObjectByName('leftLeg');
         const dRightLeg = driver.getObjectByName('rightLeg');
@@ -761,7 +911,8 @@
 
         motivatingGuyGroup.add(driver);
 
-        motivatingGuyGroup.position.set(6, 0, 0);
+        // Start far ahead
+        motivatingGuyGroup.position.set(0, 0, -40);
         scene.add(motivatingGuyGroup);
 
         const motivatingGuy = motivatingGuyGroup; // Alias for update loop
@@ -772,17 +923,41 @@
         let dialogueTimer = 0;
         let dialogueVisible = false;
 
+        // Lane Logic for Car
+        let carTargetLane = 0;
+        let carLaneTimer = 0;
+
         function updateMotivatingGuy(delta, time) {
-            // Car drives alongside at x = 6
-            motivatingGuy.position.z = player.position.z;
-            motivatingGuy.position.x = 6;
+            // Keep car ahead of player (e.g. 15 units ahead)
+            // But we want it to 'drive', so let's just make it move at player speed + some offset logic
+            // Actually, simpler: Always position it relative to player Z
+            motivatingGuy.position.z = player.position.z - 25;
+
+            // Lane Switching
+            carLaneTimer += delta;
+            if (carLaneTimer > 3.0 + Math.random() * 2.0) {
+                // Pick random lane (-1, 0, 1)
+                carTargetLane = Math.floor(Math.random() * 3) - 1;
+                carLaneTimer = 0;
+            }
+
+            // Lerp X
+            const carTargetX = carTargetLane * LANE_WIDTH;
+            motivatingGuy.position.x += (carTargetX - motivatingGuy.position.x) * 2.0 * delta;
+
             // Car faces -Z (forward)
             motivatingGuy.rotation.y = 0;
 
-            // Animate Wheels
+            // Animate Wheels (Spinning)
             motivatingGuy.children[0].children.forEach(child => {
                 if (child.name && child.name.startsWith('wheel')) {
-                    child.rotation.x += speed * delta; // Spin wheels
+                    // child is group, inner mesh is tire. Rotate the group or the tire.
+                    // In createCar, wheel is a Group containing tire and rim. tire/rim are rotated Z=90.
+                    // We need to rotate the Group around X axis?
+                    // The wheelGroup was set at pos. It has rotation (0,0,0).
+                    // The meshes inside are rotated Z=PI/2.
+                    // To roll forward (-Z), we rotate the Group around X?
+                    child.rotation.x -= speed * delta; // Negative for forward roll
                 }
             });
 
@@ -796,15 +971,19 @@
                 }
 
                 // Update 2D Position (Above Car)
-                const headPos = new THREE.Vector3(0, 3.0, 0);
+                const headPos = new THREE.Vector3(0, 3.5, 0); // Higher for chat bubble
                 headPos.applyMatrix4(motivatingGuy.matrixWorld);
                 headPos.project(camera);
 
-                const x = (headPos.x * .5 + .5) * window.innerWidth;
-                const y = (-(headPos.y * .5) + .5) * window.innerHeight;
-
-                dialogueBubble.style.left = `${x}px`;
-                dialogueBubble.style.top = `${y}px`;
+                // If behind camera, hide
+                if (headPos.z > 1) {
+                     dialogueBubble.style.display = 'none';
+                } else {
+                    const x = (headPos.x * .5 + .5) * window.innerWidth;
+                    const y = (-(headPos.y * .5) + .5) * window.innerHeight;
+                    dialogueBubble.style.left = `${x}px`;
+                    dialogueBubble.style.top = `${y}px`;
+                }
 
             } else {
                 if (dialogueTimer > 5) {
@@ -1069,6 +1248,39 @@
 
         restartBtn.addEventListener('touchstart', onStartClick, {passive: false});
         restartBtn.addEventListener('click', onStartClick);
+
+        // Insta Logic
+        const instaBtn = document.getElementById('insta-btn');
+        const instaModal = document.getElementById('insta-modal');
+        const closeModal = document.getElementById('close-modal');
+        const followBtn = document.getElementById('followBtn');
+        const muteBtn = document.getElementById('mute-btn');
+
+        instaBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent game interaction
+            instaModal.classList.remove('hidden');
+        });
+
+        closeModal.addEventListener('click', (e) => {
+             e.stopPropagation();
+             instaModal.classList.add('hidden');
+        });
+
+        followBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.open('https://www.instagram.com/sri__14/', '_blank');
+            instaModal.classList.add('hidden');
+        });
+
+        // Close modal on outside click
+        instaModal.addEventListener('click', (e) => {
+            if (e.target === instaModal) instaModal.classList.add('hidden');
+        });
+
+        muteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleMute();
+        });
 
         // --- INPUT HANDLING ---
         function moveLane(direction) {
