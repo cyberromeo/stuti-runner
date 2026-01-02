@@ -324,6 +324,119 @@
         dirLight.shadow.camera.right = 20;
         scene.add(dirLight);
 
+        // --- SHARED RESOURCES (Optimization) ---
+        const RESOURCES = {
+            geos: {},
+            mats: {},
+            meshes: {}
+        };
+
+        function initResources() {
+            // Geometries
+            RESOURCES.geos.rock = new THREE.DodecahedronGeometry(0.5);
+            RESOURCES.geos.coneBody = new THREE.CylinderGeometry(0.02, 0.25, 0.7, 16);
+            RESOURCES.geos.coneBase = new THREE.BoxGeometry(0.5, 0.05, 0.5);
+            RESOURCES.geos.coneStrip = new THREE.CylinderGeometry(0.12, 0.2, 0.15, 16);
+            RESOURCES.geos.barrierFoot = new THREE.BoxGeometry(0.2, 0.1, 0.4);
+            RESOURCES.geos.barrierBoard = new THREE.BoxGeometry(1.4, 0.6, 0.1);
+            RESOURCES.geos.barrierStripe = new THREE.BoxGeometry(0.2, 0.6, 0.11);
+            RESOURCES.geos.energyBody = new THREE.CylinderGeometry(0.15, 0.15, 0.5, 16);
+            RESOURCES.geos.energyCap = new THREE.CylinderGeometry(0.18, 0.18, 0.05, 16);
+            RESOURCES.geos.mountain = new THREE.ConeGeometry(1, 1, 4); // Unit cone for scaling
+            RESOURCES.geos.pole = new THREE.CylinderGeometry(0.1, 0.1, 5, 8);
+            RESOURCES.geos.arm = new THREE.BoxGeometry(0.1, 0.1, 1.5);
+            RESOURCES.geos.lamp = new THREE.BoxGeometry(0.4, 0.1, 0.2);
+            RESOURCES.geos.batBody = new THREE.SphereGeometry(0.2, 8, 8);
+
+            // Bat Wing Shape
+            const wingShape = new THREE.Shape();
+            wingShape.moveTo(0, 0);
+            wingShape.quadraticCurveTo(0.5, 0.5, 1.0, 0.2);
+            wingShape.quadraticCurveTo(0.6, -0.2, 0.2, 0);
+            wingShape.lineTo(0,0);
+            RESOURCES.geos.batWing = new THREE.ShapeGeometry(wingShape);
+
+            // Heart Shape
+            const heartShape = new THREE.Shape();
+            const x = 0, y = 0;
+            heartShape.moveTo(x + 0.25, y + 0.25);
+            heartShape.bezierCurveTo(x + 0.25, y + 0.25, x + 0.20, y, x, y);
+            heartShape.bezierCurveTo(x - 0.30, y, x - 0.30, y + 0.35, x - 0.30, y + 0.35);
+            heartShape.bezierCurveTo(x - 0.30, y + 0.55, x - 0.10, y + 0.77, x + 0.25, y + 0.95);
+            heartShape.bezierCurveTo(x + 0.60, y + 0.77, x + 0.80, y + 0.55, x + 0.80, y + 0.35);
+            heartShape.bezierCurveTo(x + 0.80, y + 0.35, x + 0.80, y, x + 0.50, y);
+            heartShape.bezierCurveTo(x + 0.35, y, x + 0.25, y + 0.25, x + 0.25, y + 0.25);
+            RESOURCES.geos.heart = new THREE.ExtrudeGeometry(heartShape, { depth: 0.2, bevelEnabled: false });
+
+            // Materials
+            RESOURCES.mats.rock = new THREE.MeshStandardMaterial({ color: 0x636e72 });
+            RESOURCES.mats.coneOrange = new THREE.MeshStandardMaterial({ color: 0xff6b00 });
+            RESOURCES.mats.coneWhite = new THREE.MeshStandardMaterial({ color: 0xffffff });
+            RESOURCES.mats.barrierFoot = new THREE.MeshStandardMaterial({ color: 0x2d3436 });
+            RESOURCES.mats.barrierBoard = new THREE.MeshStandardMaterial({ color: 0xffce00 });
+            RESOURCES.mats.barrierStripe = new THREE.MeshStandardMaterial({ color: 0x000000 });
+            RESOURCES.mats.energyBody = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 0.5 });
+            RESOURCES.mats.energyCap = new THREE.MeshStandardMaterial({ color: 0x2d3436 });
+            RESOURCES.mats.mountain1 = new THREE.MeshStandardMaterial({ color: 0x8B4513, flatShading: true });
+            RESOURCES.mats.mountain2 = new THREE.MeshStandardMaterial({ color: 0xA0522D, flatShading: true });
+            RESOURCES.mats.pole = new THREE.MeshStandardMaterial({ color: 0x333333 });
+            RESOURCES.mats.lamp = new THREE.MeshStandardMaterial({ color: 0xffffaa, emissive: 0xffaa00, emissiveIntensity: 2.0 });
+            RESOURCES.mats.batBody = new THREE.MeshStandardMaterial({ color: 0x111111 });
+            RESOURCES.mats.batWing = new THREE.MeshStandardMaterial({ color: 0x000000, side: THREE.DoubleSide });
+            RESOURCES.mats.heart = new THREE.MeshStandardMaterial({ color: 0xff4757, emissive: 0xff0000, emissiveIntensity: 0.8 });
+
+            // Prototype Meshes (for cloning)
+            // Traffic Cone
+            const coneGroup = new THREE.Group();
+            coneGroup.add(new THREE.Mesh(RESOURCES.geos.coneBody, RESOURCES.mats.coneOrange));
+            coneGroup.children[0].position.y = 0.35;
+            coneGroup.add(new THREE.Mesh(RESOURCES.geos.coneBase, RESOURCES.mats.coneOrange));
+            coneGroup.children[1].position.y = 0.025;
+            coneGroup.add(new THREE.Mesh(RESOURCES.geos.coneStrip, RESOURCES.mats.coneWhite));
+            coneGroup.children[2].position.y = 0.35;
+            coneGroup.traverse(o => { if(o.isMesh) o.castShadow = true; });
+            RESOURCES.meshes.cone = coneGroup;
+
+            // Barrier
+            const barrierGroup = new THREE.Group();
+            const f1 = new THREE.Mesh(RESOURCES.geos.barrierFoot, RESOURCES.mats.barrierFoot); f1.position.set(-0.6, 0.05, 0);
+            const f2 = new THREE.Mesh(RESOURCES.geos.barrierFoot, RESOURCES.mats.barrierFoot); f2.position.set(0.6, 0.05, 0);
+            const bBoard = new THREE.Mesh(RESOURCES.geos.barrierBoard, RESOURCES.mats.barrierBoard); bBoard.position.y = 0.4;
+            const s1 = new THREE.Mesh(RESOURCES.geos.barrierStripe, RESOURCES.mats.barrierStripe); s1.position.set(-0.4, 0.4, 0);
+            const s2 = new THREE.Mesh(RESOURCES.geos.barrierStripe, RESOURCES.mats.barrierStripe); s2.position.set(0, 0.4, 0);
+            const s3 = new THREE.Mesh(RESOURCES.geos.barrierStripe, RESOURCES.mats.barrierStripe); s3.position.set(0.4, 0.4, 0);
+            barrierGroup.add(f1, f2, bBoard, s1, s2, s3);
+            barrierGroup.traverse(o => { if(o.isMesh) o.castShadow = true; });
+            RESOURCES.meshes.barrier = barrierGroup;
+
+            // Energy Pack
+            const energyGroup = new THREE.Group();
+            energyGroup.add(new THREE.Mesh(RESOURCES.geos.energyBody, RESOURCES.mats.energyBody));
+            const eTop = new THREE.Mesh(RESOURCES.geos.energyCap, RESOURCES.mats.energyCap); eTop.position.y = 0.27;
+            const eBot = new THREE.Mesh(RESOURCES.geos.energyCap, RESOURCES.mats.energyCap); eBot.position.y = -0.27;
+            energyGroup.add(eTop, eBot);
+            energyGroup.traverse(o => { if(o.isMesh) o.castShadow = true; });
+            RESOURCES.meshes.energyPack = energyGroup;
+
+            // Heart
+            const heartMesh = new THREE.Mesh(RESOURCES.geos.heart, RESOURCES.mats.heart);
+            heartMesh.rotation.x = Math.PI;
+            heartMesh.rotation.y = Math.PI;
+            RESOURCES.meshes.heart = heartMesh;
+
+            // Bat
+            const batGroup = new THREE.Group();
+            batGroup.add(new THREE.Mesh(RESOURCES.geos.batBody, RESOURCES.mats.batBody));
+            const lWing = new THREE.Mesh(RESOURCES.geos.batWing, RESOURCES.mats.batWing);
+            lWing.position.set(-0.2, 0, 0); lWing.rotation.y = Math.PI; lWing.name = 'lWing';
+            const rWing = new THREE.Mesh(RESOURCES.geos.batWing, RESOURCES.mats.batWing);
+            rWing.position.set(0.2, 0, 0); rWing.name = 'rWing';
+            batGroup.add(lWing, rWing);
+            RESOURCES.meshes.bat = batGroup;
+        }
+
+        initResources();
+
         // --- TEXTURE LOADING ---
         function createRoadTexture() {
             const canvas = document.createElement('canvas');
@@ -607,42 +720,12 @@
              }
         }
 
-        function createBat() {
-             const group = new THREE.Group();
-             // Body
-             const bodyGeo = new THREE.SphereGeometry(0.2, 8, 8);
-             const bodyMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-             const body = new THREE.Mesh(bodyGeo, bodyMat);
-             group.add(body);
-
-             // Wings
-             const wingShape = new THREE.Shape();
-             wingShape.moveTo(0, 0);
-             wingShape.quadraticCurveTo(0.5, 0.5, 1.0, 0.2);
-             wingShape.quadraticCurveTo(0.6, -0.2, 0.2, 0);
-             wingShape.lineTo(0,0);
-
-             const wingGeo = new THREE.ShapeGeometry(wingShape);
-             const wingMat = new THREE.MeshStandardMaterial({ color: 0x000000, side: THREE.DoubleSide });
-
-             const lWing = new THREE.Mesh(wingGeo, wingMat);
-             lWing.position.set(-0.2, 0, 0);
-             lWing.rotation.y = Math.PI; // Flip
-             lWing.name = 'lWing';
-             group.add(lWing);
-
-             const rWing = new THREE.Mesh(wingGeo, wingMat);
-             rWing.position.set(0.2, 0, 0);
-             rWing.name = 'rWing';
-             group.add(rWing);
-
-             return group;
-        }
+        // Removed createBat
 
         function spawnBat() {
             if (!gameActive) return;
             // Spawn high up, move towards camera
-            const bat = createBat();
+            const bat = RESOURCES.meshes.bat.clone();
             const x = (Math.random() - 0.5) * 10;
             const y = 3 + Math.random() * 3;
             bat.position.set(x, y, -60);
@@ -659,12 +742,20 @@
 
         function createMountain(x, z) {
              const height = 10 + Math.random() * 15;
-             const geo = new THREE.ConeGeometry(8 + Math.random() * 5, height, 4); // Low poly pyramid
-             const mat = new THREE.MeshStandardMaterial({
-                 color: Math.random() > 0.5 ? 0x8B4513 : 0xA0522D, // SaddleBrown / Sienna
-                 flatShading: true
-             });
+             const radius = 8 + Math.random() * 5;
+             // Reuse geometry and material
+             const geo = RESOURCES.geos.mountain;
+             const mat = Math.random() > 0.5 ? RESOURCES.mats.mountain1 : RESOURCES.mats.mountain2;
+
              const mesh = new THREE.Mesh(geo, mat);
+             // Scale unit cone (radius 1, height 1)
+             // We need to scale X and Z by radius, Y by height
+             mesh.scale.set(radius, height, radius);
+
+             // Initial pos: center of unit cone is at Y=0. Top at 0.5, bottom at -0.5.
+             // If we scale Y by H, it goes from -H/2 to H/2.
+             // We want bottom to be at roughly -2 (underground).
+             // So center should be at H/2 - 2.
              mesh.position.set(x, height/2 - 2, z);
              mesh.rotation.y = Math.random() * Math.PI;
              scene.add(mesh);
@@ -679,33 +770,21 @@
         function createStreetLight(x, z, isRight) {
              const group = new THREE.Group();
              // Pole
-             const poleGeo = new THREE.CylinderGeometry(0.1, 0.1, 5, 8);
-             const poleMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-             const pole = new THREE.Mesh(poleGeo, poleMat);
+             const pole = new THREE.Mesh(RESOURCES.geos.pole, RESOURCES.mats.pole);
              pole.position.y = 2.5;
              group.add(pole);
 
              // Arm
-             const armGeo = new THREE.BoxGeometry(0.1, 0.1, 1.5);
-             const arm = new THREE.Mesh(armGeo, poleMat);
+             const arm = new THREE.Mesh(RESOURCES.geos.arm, RESOURCES.mats.pole);
              arm.position.set(isRight ? -0.5 : 0.5, 4.8, 0); // Stick out towards track
              group.add(arm);
 
              // Lamp
-             const lampGeo = new THREE.BoxGeometry(0.4, 0.1, 0.2);
-             const lampMat = new THREE.MeshStandardMaterial({
-                 color: 0xffffaa,
-                 emissive: 0xffaa00, // Warm glow
-                 emissiveIntensity: 2.0
-             });
-             const lamp = new THREE.Mesh(lampGeo, lampMat);
+             const lamp = new THREE.Mesh(RESOURCES.geos.lamp, RESOURCES.mats.lamp);
              lamp.position.set(isRight ? -1.0 : 1.0, 4.7, 0);
              group.add(lamp);
 
-             // Actual Point Light for "glowing" effect on road
-             const light = new THREE.PointLight(0xffaa00, 1.5, 10);
-             light.position.set(isRight ? -1.0 : 1.0, 4.5, 0);
-             group.add(light);
+             // Removed PointLight for optimization
 
              group.position.set(x, 0, z);
              scene.add(group);
@@ -1078,32 +1157,7 @@
             initAudio();
         }
 
-        function createTrafficCone() {
-            const group = new THREE.Group();
-
-            // Cone Body
-            const coneGeo = new THREE.CylinderGeometry(0.02, 0.25, 0.7, 16);
-            const orangeMat = new THREE.MeshStandardMaterial({ color: 0xff6b00 });
-            const cone = new THREE.Mesh(coneGeo, orangeMat);
-            cone.position.y = 0.35;
-            group.add(cone);
-
-            // Base
-            const baseGeo = new THREE.BoxGeometry(0.5, 0.05, 0.5);
-            const base = new THREE.Mesh(baseGeo, orangeMat);
-            base.position.y = 0.025;
-            group.add(base);
-
-            // White Strip
-            const stripGeo = new THREE.CylinderGeometry(0.12, 0.2, 0.15, 16);
-            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-            const strip = new THREE.Mesh(stripGeo, whiteMat);
-            strip.position.y = 0.35;
-            group.add(strip);
-
-            group.traverse(o => { if(o.isMesh) o.castShadow = true; });
-            return group;
-        }
+        // Removed createTrafficCone as it's now handled by RESOURCES.meshes.cone.clone()
 
         function spawnObstacle() {
             if (!gameActive) return;
@@ -1115,39 +1169,14 @@
 
             let mesh;
             if (type === 'rock') {
-                const geo = new THREE.DodecahedronGeometry(0.5);
-                const mat = new THREE.MeshStandardMaterial({ color: 0x636e72 });
-                mesh = new THREE.Mesh(geo, mat);
+                mesh = new THREE.Mesh(RESOURCES.geos.rock, RESOURCES.mats.rock);
                 mesh.position.y = 0.5;
                 mesh.castShadow = true;
             } else if (type === 'cone') {
-                mesh = createTrafficCone();
+                mesh = RESOURCES.meshes.cone.clone();
             } else {
                 // Barrier
-                const group = new THREE.Group();
-                // Feet
-                const footGeo = new THREE.BoxGeometry(0.2, 0.1, 0.4);
-                const footMat = new THREE.MeshStandardMaterial({ color: 0x2d3436 });
-                const foot1 = new THREE.Mesh(footGeo, footMat); foot1.position.set(-0.6, 0.05, 0);
-                const foot2 = new THREE.Mesh(footGeo, footMat); foot2.position.set(0.6, 0.05, 0);
-                group.add(foot1, foot2);
-
-                // Board
-                const boardGeo = new THREE.BoxGeometry(1.4, 0.6, 0.1);
-                const boardMat = new THREE.MeshStandardMaterial({ color: 0xffce00 }); // Construction Yellow
-                const board = new THREE.Mesh(boardGeo, boardMat);
-                board.position.y = 0.4;
-
-                // Stripes (using simple geometry for now)
-                const stripeGeo = new THREE.BoxGeometry(0.2, 0.6, 0.11);
-                const stripeMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
-                const s1 = new THREE.Mesh(stripeGeo, stripeMat); s1.position.set(-0.4, 0.4, 0);
-                const s2 = new THREE.Mesh(stripeGeo, stripeMat); s2.position.set(0, 0.4, 0);
-                const s3 = new THREE.Mesh(stripeGeo, stripeMat); s3.position.set(0.4, 0.4, 0);
-
-                group.add(board, s1, s2, s3);
-                group.traverse(o => { if(o.isMesh) o.castShadow = true; });
-                mesh = group;
+                mesh = RESOURCES.meshes.barrier.clone();
             }
 
             mesh.position.x = lane * LANE_WIDTH;
@@ -1158,31 +1187,12 @@
             obstacles.push({ mesh, active: true });
         }
 
-        function createEnergyPack() {
-            const group = new THREE.Group();
-            const bodyGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.5, 16);
-            const bodyMat = new THREE.MeshStandardMaterial({
-                color: 0x00ff00,
-                emissive: 0x00ff00,
-                emissiveIntensity: 0.5
-            });
-            const body = new THREE.Mesh(bodyGeo, bodyMat);
-            group.add(body);
-
-            const capGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.05, 16);
-            const capMat = new THREE.MeshStandardMaterial({ color: 0x2d3436 });
-            const top = new THREE.Mesh(capGeo, capMat); top.position.y = 0.27;
-            const bot = new THREE.Mesh(capGeo, capMat); bot.position.y = -0.27;
-            group.add(top, bot);
-
-            group.traverse(o => { if(o.isMesh) o.castShadow = true; });
-            return group;
-        }
+        // Removed createEnergyPack
 
         function spawnEnergyPack() {
             if (!gameActive) return;
             const lane = Math.floor(Math.random() * 3) - 1;
-            const mesh = createEnergyPack();
+            const mesh = RESOURCES.meshes.energyPack.clone();
             mesh.position.set(lane * LANE_WIDTH, 1.0, -50);
             mesh.name = 'energy';
             scene.add(mesh);
@@ -1193,27 +1203,7 @@
             if (!gameActive) return;
             const lane = Math.floor(Math.random() * 3) - 1;
 
-            const shape = new THREE.Shape();
-            const x = 0, y = 0;
-            shape.moveTo(x + 0.25, y + 0.25);
-            shape.bezierCurveTo(x + 0.25, y + 0.25, x + 0.20, y, x, y);
-            shape.bezierCurveTo(x - 0.30, y, x - 0.30, y + 0.35, x - 0.30, y + 0.35);
-            shape.bezierCurveTo(x - 0.30, y + 0.55, x - 0.10, y + 0.77, x + 0.25, y + 0.95);
-            shape.bezierCurveTo(x + 0.60, y + 0.77, x + 0.80, y + 0.55, x + 0.80, y + 0.35);
-            shape.bezierCurveTo(x + 0.80, y + 0.35, x + 0.80, y, x + 0.50, y);
-            shape.bezierCurveTo(x + 0.35, y, x + 0.25, y + 0.25, x + 0.25, y + 0.25);
-
-            const extrudeSettings = { depth: 0.2, bevelEnabled: false };
-            const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-            const mat = new THREE.MeshStandardMaterial({
-                color: 0xff4757,
-                emissive: 0xff0000,
-                emissiveIntensity: 0.8
-            });
-            const mesh = new THREE.Mesh(geo, mat);
-
-            mesh.rotation.x = Math.PI; // Flip heart upright
-            mesh.rotation.y = Math.PI;
+            const mesh = RESOURCES.meshes.heart.clone();
 
             // Randomly high (jump) or low
             const isHigh = Math.random() > 0.5;
