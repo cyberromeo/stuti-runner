@@ -165,7 +165,7 @@
 
         #insta-btn {
             position: absolute;
-            top: 20px;
+            bottom: 20px;
             left: 20px;
             width: 50px;
             height: 50px;
@@ -183,7 +183,7 @@
 
         #mute-btn {
             position: absolute;
-            top: 20px;
+            bottom: 20px;
             right: 20px; /* Adjust based on HUD layout */
             width: 50px;
             height: 50px;
@@ -295,11 +295,10 @@
 
         // --- SCENE SETUP ---
         const scene = new THREE.Scene();
-        // Pastel Gradient Logic - Simple single color for now, but distinct from Sky Blue
-        // Vaporwave Pastel Purple/Pinkish
-        const bgCol = new THREE.Color(0xfac3e0); // Soft Pink
+        // Dark theme: shades of black and grey
+        const bgCol = new THREE.Color(0x111111); // Very dark grey
         scene.background = bgCol;
-        scene.fog = new THREE.Fog(bgCol, 20, 50);
+        scene.fog = new THREE.Fog(bgCol, 20, 60); // Grey ambient fog
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
         camera.position.set(0, 3, 6);
@@ -308,15 +307,15 @@
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
-        renderer.outputColorSpace = THREE.SRGBColorSpace; // Better color accuracy for pastel
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
         document.body.appendChild(renderer.domElement);
 
         // Lighting
-        // Vaporwave = Soft ambient + sharp accents
-        const hemiLight = new THREE.HemisphereLight(0xffe6fa, 0x080820, 0.8); // Pink Sky, Dark Blue Ground
+        // Night theme: Dark ambient, low directional
+        const hemiLight = new THREE.HemisphereLight(0x444444, 0x000000, 0.6); // Dark Grey Sky, Black Ground
         scene.add(hemiLight);
 
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6); // Softer sun
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.4); // Low intensity
         dirLight.position.set(10, 20, 10);
         dirLight.castShadow = true;
         dirLight.shadow.camera.top = 20;
@@ -332,16 +331,16 @@
             canvas.height = 512;
             const ctx = canvas.getContext('2d');
 
-            // Vaporwave Road: Deep Purple / Violet
-            ctx.fillStyle = '#2d1b4e';
+            // Dark Asphalt Road
+            ctx.fillStyle = '#050505';
             ctx.fillRect(0, 0, 512, 512);
 
-            // Grid Pattern / Glow Lines
-            // Lane Lines (Cyan Glow)
-            ctx.strokeStyle = '#00f2ff';
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = '#00f2ff';
-            ctx.lineWidth = 6;
+            // Glow Lines
+            // Lane Lines (White/Cyan Glow)
+            ctx.strokeStyle = '#ffffff';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#00ffff';
+            ctx.lineWidth = 4;
             ctx.setLineDash([40, 50]);
 
             // Two dividers for 3 lanes
@@ -355,11 +354,12 @@
             ctx.lineTo(342, 512);
             ctx.stroke();
 
-            // Side lines (Solid Pink/Magenta Glow)
+            // Side lines (Glowing White/Pink)
             ctx.setLineDash([]);
-            ctx.strokeStyle = '#ff00ff';
+            ctx.strokeStyle = '#ffffff';
             ctx.shadowColor = '#ff00ff';
-            ctx.lineWidth = 10;
+            ctx.shadowBlur = 15;
+            ctx.lineWidth = 8;
             ctx.beginPath();
             ctx.moveTo(10, 0);
             ctx.lineTo(10, 512);
@@ -377,17 +377,17 @@
         }
 
         function loadGroundTexture() {
-            // Low Poly "Grid" or "Pastel" ground
+            // Dark grid ground
             const canvas = document.createElement('canvas');
             canvas.width = 64;
             canvas.height = 64;
             const ctx = canvas.getContext('2d');
-            // Base: Soft dark violet
-            ctx.fillStyle = '#1e1133';
+            // Base: Very Dark Grey
+            ctx.fillStyle = '#0a0a0a';
             ctx.fillRect(0,0,64,64);
 
-            // Grid lines
-            ctx.strokeStyle = '#3a206e';
+            // Grid lines (Faint grey)
+            ctx.strokeStyle = '#1a1a1a';
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(0,0); ctx.lineTo(64,0);
@@ -592,6 +592,7 @@
         let energyPacks = [];
         let mountains = [];
         let streetLights = [];
+        let bats = [];
 
         // Powerup State
         let isInvincible = false;
@@ -604,6 +605,49 @@
                  createMountainPair(z);
                  if (z % 20 === 0) createStreetLightPair(z);
              }
+        }
+
+        function createBat() {
+             const group = new THREE.Group();
+             // Body
+             const bodyGeo = new THREE.SphereGeometry(0.2, 8, 8);
+             const bodyMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+             const body = new THREE.Mesh(bodyGeo, bodyMat);
+             group.add(body);
+
+             // Wings
+             const wingShape = new THREE.Shape();
+             wingShape.moveTo(0, 0);
+             wingShape.quadraticCurveTo(0.5, 0.5, 1.0, 0.2);
+             wingShape.quadraticCurveTo(0.6, -0.2, 0.2, 0);
+             wingShape.lineTo(0,0);
+
+             const wingGeo = new THREE.ShapeGeometry(wingShape);
+             const wingMat = new THREE.MeshStandardMaterial({ color: 0x000000, side: THREE.DoubleSide });
+
+             const lWing = new THREE.Mesh(wingGeo, wingMat);
+             lWing.position.set(-0.2, 0, 0);
+             lWing.rotation.y = Math.PI; // Flip
+             lWing.name = 'lWing';
+             group.add(lWing);
+
+             const rWing = new THREE.Mesh(wingGeo, wingMat);
+             rWing.position.set(0.2, 0, 0);
+             rWing.name = 'rWing';
+             group.add(rWing);
+
+             return group;
+        }
+
+        function spawnBat() {
+            if (!gameActive) return;
+            // Spawn high up, move towards camera
+            const bat = createBat();
+            const x = (Math.random() - 0.5) * 10;
+            const y = 3 + Math.random() * 3;
+            bat.position.set(x, y, -60);
+            scene.add(bat);
+            bats.push(bat);
         }
 
         function createMountainPair(z) {
@@ -636,7 +680,7 @@
              const group = new THREE.Group();
              // Pole
              const poleGeo = new THREE.CylinderGeometry(0.1, 0.1, 5, 8);
-             const poleMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+             const poleMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
              const pole = new THREE.Mesh(poleGeo, poleMat);
              pole.position.y = 2.5;
              group.add(pole);
@@ -649,10 +693,19 @@
 
              // Lamp
              const lampGeo = new THREE.BoxGeometry(0.4, 0.1, 0.2);
-             const lampMat = new THREE.MeshStandardMaterial({ color: 0xffffaa, emissive: 0xffffaa });
+             const lampMat = new THREE.MeshStandardMaterial({
+                 color: 0xffffaa,
+                 emissive: 0xffaa00, // Warm glow
+                 emissiveIntensity: 2.0
+             });
              const lamp = new THREE.Mesh(lampGeo, lampMat);
              lamp.position.set(isRight ? -1.0 : 1.0, 4.7, 0);
              group.add(lamp);
+
+             // Actual Point Light for "glowing" effect on road
+             const light = new THREE.PointLight(0xffaa00, 1.5, 10);
+             light.position.set(isRight ? -1.0 : 1.0, 4.5, 0);
+             group.add(light);
 
              group.position.set(x, 0, z);
              scene.add(group);
@@ -1018,6 +1071,8 @@
             hearts = [];
             mountains = [];
             streetLights = [];
+            bats.forEach(b => scene.remove(b));
+            bats = [];
 
             spawnMountains(); // Reset environment
             initAudio();
@@ -1150,7 +1205,11 @@
 
             const extrudeSettings = { depth: 0.2, bevelEnabled: false };
             const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-            const mat = new THREE.MeshStandardMaterial({ color: 0xff4757 });
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0xff4757,
+                emissive: 0xff0000,
+                emissiveIntensity: 0.8
+            });
             const mesh = new THREE.Mesh(geo, mat);
 
             mesh.rotation.x = Math.PI; // Flip heart upright
@@ -1384,6 +1443,9 @@
                     else if (r > 0.15) spawnHeart();
                     else spawnEnergyPack(); // Rare chance
 
+                    // Occasionally spawn Bat
+                    if (Math.random() > 0.7) spawnBat();
+
                     // Occasionally spawn Sri
                     if (Math.random() < 0.1) {
                          npc.position.z = -50;
@@ -1400,7 +1462,7 @@
                 // Scroll ground texture to simulate speed
                 // INVERTED: Changed -= to += to move texture towards camera (simulating forward motion)
                 groundTex.offset.y += (speed * delta) * 0.05;
-                roadTex.offset.y += (speed * delta) * 0.1; // Road texture
+                roadTex.offset.y += (speed * delta) * 0.05; // Road texture (Matched with ground)
 
                 // Update Environment
                 mountainTimer += delta * speed;
@@ -1445,6 +1507,28 @@
                         }
                     }
                 });
+
+                // Update Bats
+                for (let i = bats.length - 1; i >= 0; i--) {
+                    let b = bats[i];
+                    // Bats fly towards player, maybe slightly faster than running speed
+                    b.position.z += (speed * 1.5) * delta;
+                    b.position.y += Math.sin(time * 5 + i) * 0.02; // Bobbing
+
+                    // Flap Wings
+                    const lWing = b.getObjectByName('lWing');
+                    const rWing = b.getObjectByName('rWing');
+                    if(lWing && rWing) {
+                        const flap = Math.sin(time * 20) * 0.5;
+                        lWing.rotation.z = flap;
+                        rWing.rotation.z = -flap;
+                    }
+
+                    if (b.position.z > 10) {
+                        scene.remove(b);
+                        bats.splice(i, 1);
+                    }
+                }
 
                 // Move NPC if visible
                 if (npc.visible) {
