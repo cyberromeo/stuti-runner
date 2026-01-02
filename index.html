@@ -295,10 +295,10 @@
 
         // --- SCENE SETUP ---
         const scene = new THREE.Scene();
-        // Pink/Purple theme
-        const bgCol = new THREE.Color(0x2e001f); // Deep Plum
+        // Bright Pastel Pink theme
+        const bgCol = new THREE.Color(0xffe6ea); // Very Light Pink (Lavender Blushish)
         scene.background = bgCol;
-        scene.fog = new THREE.Fog(bgCol, 20, 60); // Pink/Purple ambient fog
+        scene.fog = new THREE.Fog(bgCol, 20, 60); // Matches background for smooth fade
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
         camera.position.set(0, 3, 6);
@@ -311,11 +311,11 @@
         document.body.appendChild(renderer.domElement);
 
         // Lighting
-        // Night Pink theme
-        const hemiLight = new THREE.HemisphereLight(0xffb6c1, 0x2e001f, 0.6); // Light Pink Sky, Dark Plum Ground
+        // Bright Day theme
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffc0cb, 1.0); // White Sky, Pink Ground, High Intensity
         scene.add(hemiLight);
 
-        const dirLight = new THREE.DirectionalLight(0xffc0cb, 0.5); // Pink tinted light
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8); // Bright White Sun
         dirLight.position.set(10, 20, 10);
         dirLight.castShadow = true;
         dirLight.shadow.camera.top = 20;
@@ -369,21 +369,21 @@
             RESOURCES.geos.heart = new THREE.ExtrudeGeometry(heartShape, { depth: 0.2, bevelEnabled: false });
 
             // Materials
-            RESOURCES.mats.rock = new THREE.MeshStandardMaterial({ color: 0x503040 }); // Dark Pink Rock
-            RESOURCES.mats.coneOrange = new THREE.MeshStandardMaterial({ color: 0xff69b4 }); // Hot Pink
-            RESOURCES.mats.coneWhite = new THREE.MeshStandardMaterial({ color: 0xffc0cb }); // Pink
-            RESOURCES.mats.barrierFoot = new THREE.MeshStandardMaterial({ color: 0x800080 }); // Purple
-            RESOURCES.mats.barrierBoard = new THREE.MeshStandardMaterial({ color: 0xff1493 }); // Deep Pink
-            RESOURCES.mats.barrierStripe = new THREE.MeshStandardMaterial({ color: 0x4b0082 }); // Indigo/Dark Purple
-            RESOURCES.mats.energyBody = new THREE.MeshStandardMaterial({ color: 0xff00ff, emissive: 0xff00ff, emissiveIntensity: 0.5 }); // Magenta
-            RESOURCES.mats.energyCap = new THREE.MeshStandardMaterial({ color: 0x800080 }); // Purple
-            RESOURCES.mats.mountain1 = new THREE.MeshStandardMaterial({ color: 0xff69b4, flatShading: true }); // Hot Pink
-            RESOURCES.mats.mountain2 = new THREE.MeshStandardMaterial({ color: 0xdb7093, flatShading: true }); // Pale Violet Red
-            RESOURCES.mats.pole = new THREE.MeshStandardMaterial({ color: 0x603050 }); // Dark Pinkish Metal
-            RESOURCES.mats.lamp = new THREE.MeshStandardMaterial({ color: 0xffc0cb, emissive: 0xff69b4, emissiveIntensity: 2.0 }); // Pink Light
-            RESOURCES.mats.batBody = new THREE.MeshStandardMaterial({ color: 0x4b0082 }); // Dark Purple
-            RESOURCES.mats.batWing = new THREE.MeshStandardMaterial({ color: 0x2e001f, side: THREE.DoubleSide }); // Deep Plum
-            RESOURCES.mats.heart = new THREE.MeshStandardMaterial({ color: 0xff1493, emissive: 0xff69b4, emissiveIntensity: 0.8 }); // Deep Pink
+            RESOURCES.mats.rock = new THREE.MeshStandardMaterial({ color: 0xd8bfd8 }); // Thistle (Pastel Purple Rock)
+            RESOURCES.mats.coneOrange = new THREE.MeshStandardMaterial({ color: 0xffb6c1 }); // Light Pink
+            RESOURCES.mats.coneWhite = new THREE.MeshStandardMaterial({ color: 0xffffff }); // White
+            RESOURCES.mats.barrierFoot = new THREE.MeshStandardMaterial({ color: 0xffdab9 }); // Peach Puff
+            RESOURCES.mats.barrierBoard = new THREE.MeshStandardMaterial({ color: 0xff69b4 }); // Hot Pink (Pop of color)
+            RESOURCES.mats.barrierStripe = new THREE.MeshStandardMaterial({ color: 0xffffff }); // White Stripe
+            RESOURCES.mats.energyBody = new THREE.MeshStandardMaterial({ color: 0xdda0dd, emissive: 0xdda0dd, emissiveIntensity: 0.3 }); // Plum/Pastel Purple
+            RESOURCES.mats.energyCap = new THREE.MeshStandardMaterial({ color: 0xee82ee }); // Violet
+            RESOURCES.mats.mountain1 = new THREE.MeshStandardMaterial({ color: 0xffc0cb, flatShading: true }); // Pink
+            RESOURCES.mats.mountain2 = new THREE.MeshStandardMaterial({ color: 0xffb6c1, flatShading: true }); // Light Pink
+            RESOURCES.mats.pole = new THREE.MeshStandardMaterial({ color: 0xd3d3d3 }); // Light Grey
+            RESOURCES.mats.lamp = new THREE.MeshStandardMaterial({ color: 0xffffe0, emissive: 0xffffe0, emissiveIntensity: 0.5 }); // Light Yellow/White
+            RESOURCES.mats.batBody = new THREE.MeshStandardMaterial({ color: 0x9370db }); // Medium Purple (Pastel-ish)
+            RESOURCES.mats.batWing = new THREE.MeshStandardMaterial({ color: 0xdda0dd, side: THREE.DoubleSide }); // Plum
+            RESOURCES.mats.heart = new THREE.MeshStandardMaterial({ color: 0xff69b4, emissive: 0xff1493, emissiveIntensity: 0.5 }); // Hot Pink Heart
 
             // Prototype Meshes (for cloning)
             // Traffic Cone
@@ -444,16 +444,15 @@
             canvas.height = 512;
             const ctx = canvas.getContext('2d');
 
-            // Dark Pink/Purple Road
-            ctx.fillStyle = '#1a0510';
+            // Pastel Pink Road (Strawberry)
+            ctx.fillStyle = '#ffb7c5'; // Sakura/Cherry Blossom Pink
             ctx.fillRect(0, 0, 512, 512);
 
-            // Glow Lines
-            // Lane Lines (White/Hot Pink Glow)
+            // Lines (White, No extreme glow needed for day, but keep slight shadow for definition)
             ctx.strokeStyle = '#ffffff';
-            ctx.shadowBlur = 15;
+            ctx.shadowBlur = 0;
             ctx.shadowColor = '#ff69b4';
-            ctx.lineWidth = 4;
+            ctx.lineWidth = 6;
             ctx.setLineDash([40, 50]);
 
             // Two dividers for 3 lanes
@@ -467,12 +466,11 @@
             ctx.lineTo(342, 512);
             ctx.stroke();
 
-            // Side lines (Glowing White/Magenta)
+            // Side lines (Solid White)
             ctx.setLineDash([]);
             ctx.strokeStyle = '#ffffff';
-            ctx.shadowColor = '#ff00ff';
-            ctx.shadowBlur = 15;
-            ctx.lineWidth = 8;
+            ctx.shadowBlur = 0;
+            ctx.lineWidth = 10;
             ctx.beginPath();
             ctx.moveTo(10, 0);
             ctx.lineTo(10, 512);
@@ -490,17 +488,17 @@
         }
 
         function loadGroundTexture() {
-            // Pink grid ground
+            // Pastel grid ground
             const canvas = document.createElement('canvas');
             canvas.width = 64;
             canvas.height = 64;
             const ctx = canvas.getContext('2d');
-            // Base: Very Dark Pink/Purple
-            ctx.fillStyle = '#14050b';
+            // Base: Very Light Pink/White
+            ctx.fillStyle = '#fff0f5'; // Lavender Blush
             ctx.fillRect(0,0,64,64);
 
-            // Grid lines (Lighter Pink)
-            ctx.strokeStyle = '#3d1020';
+            // Grid lines (Soft Pink)
+            ctx.strokeStyle = '#ffc0cb';
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(0,0); ctx.lineTo(64,0);
@@ -818,11 +816,11 @@
 
             // Materials
             const skinMat = new THREE.MeshStandardMaterial({ color: 0xffccaa });
-            const darkMat = new THREE.MeshStandardMaterial({ color: 0x333333 }); // Keep natural hair for now, or tint slightly? Left natural.
+            const darkMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
             const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-            const shirtColor = type === 'girl' ? 0x2ecc71 : 0xff1493; // Green for Stuti (KEPT), Deep Pink for Sri
+            const shirtColor = type === 'girl' ? 0x2ecc71 : 0xffb6c1; // Green for Stuti (KEPT), Light Pink for Sri
             const shirtMat = new THREE.MeshStandardMaterial({ color: shirtColor });
-            const pantsMat = new THREE.MeshStandardMaterial({ color: 0x4b0082 }); // Dark Purple/Indigo
+            const pantsMat = new THREE.MeshStandardMaterial({ color: 0x87cefa }); // Light Sky Blue Denim
 
             // Head (Sphere)
             const headGeo = new THREE.SphereGeometry(0.35, 16, 16);
@@ -877,7 +875,7 @@
             // Legs (Capsules)
             const legGeo = new THREE.CapsuleGeometry(0.1, 0.5, 4, 8);
             const shoeGeo = new THREE.BoxGeometry(0.12, 0.1, 0.2);
-            const shoeMat = new THREE.MeshStandardMaterial({ color: 0x2e001f }); // Deep Plum shoes
+            const shoeMat = new THREE.MeshStandardMaterial({ color: 0xffffff }); // White Shoes
 
             const leftLeg = new THREE.Mesh(legGeo, pantsMat);
             leftLeg.position.set(-0.15, 0.35, 0);
@@ -950,8 +948,8 @@
             const carGroup = new THREE.Group();
 
             // Low Poly Sports Car Design
-            // Body Color: Pink Gradient feel
-            const bodyColor = 0xffc0cb; // Pink
+            // Body Color: Bright Pastel Pink
+            const bodyColor = 0xff69b4; // Hot Pink body to stand out against pastel road
             const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.3, metalness: 0.5 });
 
             // Main Chassis
@@ -980,8 +978,8 @@
             spoiler.position.set(0, 1.2, 1.8);
             carGroup.add(spoiler);
 
-            // Glow Strips (Underglow / Neon accents)
-            const glowMat = new THREE.MeshStandardMaterial({ color: 0xff00ff, emissive: 0xff00ff, emissiveIntensity: 2.0 });
+            // Glow Strips (Pastel accents)
+            const glowMat = new THREE.MeshStandardMaterial({ color: 0xffffff }); // White accents
 
             // Rear Lights
             const lightGeo = new THREE.BoxGeometry(0.8, 0.1, 0.1);
@@ -991,10 +989,10 @@
 
             // Wheels (Thicker, Sportier)
             const wheelGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.5, 32);
-            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x2e001f }); // Dark Plum
-            // Glowing Rims
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x555555 }); // Grey Tires
+            // Rims
             const rimGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.51, 16);
-            const rimMat = new THREE.MeshStandardMaterial({ color: 0xff69b4, emissive: 0xff69b4, emissiveIntensity: 1.0 }); // Hot Pink
+            const rimMat = new THREE.MeshStandardMaterial({ color: 0xffffff }); // White Rims
 
             const wheelPositions = [
                 [-1.1, 0.45, 1.3], [1.1, 0.45, 1.3],
@@ -1014,8 +1012,8 @@
                 carGroup.add(wGroup);
             });
 
-            // Local Light for "Glow"
-            const carLight = new THREE.PointLight(0xff69b4, 2, 8); // Hot Pink
+            // Local Light (Sunlight reflection?) - Reduced intensity
+            const carLight = new THREE.PointLight(0xffffff, 0.5, 5);
             carLight.position.set(0, 1, 0);
             carGroup.add(carLight);
 
@@ -1030,7 +1028,7 @@
         const driver = createCharacter('boy');
         // Tint his shirt/pants to look different
         driver.children.forEach(c => {
-            if (c.material && c.material.color.getHex() === 0xff1493) c.material = new THREE.MeshStandardMaterial({ color: 0xff69b4 }); // Hot Pink Shirt
+            if (c.material && c.material.color.getHex() === 0xffb6c1) c.material = new THREE.MeshStandardMaterial({ color: 0xff69b4 }); // Hot Pink Shirt
         });
         driver.scale.set(0.8, 0.8, 0.8);
         driver.position.set(0, 0.8, -0.5); // Sit in cabin
